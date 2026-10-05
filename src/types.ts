@@ -13,6 +13,15 @@ export interface House {
   eigeneLeistungen?: EigeneLeistung[];
   notizen?: string;
   links?: HouseLink[];
+  materialien?: Record<string, MaterialAuswahl>;
+}
+
+export interface MaterialAuswahl {
+  angaben?: Record<string, string>;
+  ausfuehrung?: string;
+  energie?: string;
+  schall?: string;
+  notizen?: string;
 }
 
 export interface HouseLink {

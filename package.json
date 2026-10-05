@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
+    "@supabase/supabase-js": "^2.117.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

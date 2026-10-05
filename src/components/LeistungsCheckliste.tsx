@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Ausfuehrender, House } from '../types';
 import { leistungsstatus, leistungspreis } from '../utils/bauposten';
 import type { Leistungsstatus } from '../types';
+import { passtLeistungsFilter } from '../utils/leistungsFilter';
+import type { LeistungsFilter } from '../utils/leistungsFilter';
 
 interface LeistungsChecklisteProps {
   house: House;
@@ -303,7 +305,13 @@ function LeistungsZeile({
 export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProps) {
   const [neuerPunkt, setNeuerPunkt] = useState('');
   const [offeneLeistung, setOffeneLeistung] = useState<string | null>(null);
+  const [filter, setFilter] = useState<LeistungsFilter>('alle');
   const eigeneLeistungen = house.eigeneLeistungen ?? [];
+  const sichtbareEigeneLeistungen = eigeneLeistungen.filter((leistung) => passtLeistungsFilter(house, leistung.id, filter));
+  const sichtbareKategorien = kategorien.map((kategorie) => ({
+    ...kategorie,
+    sichtbareLeistungen: kategorie.leistungen.filter((leistung) => passtLeistungsFilter(house, leistung.id, filter)),
+  })).filter((kategorie) => filter === 'alle' || kategorie.sichtbareLeistungen.length > 0);
   const istGeklaert = (id: string) => leistungsstatus(house, id) !== 'ungeklaert';
   const anzahl = kategorien.reduce((summe, kategorie) => summe + kategorie.leistungen.length, eigeneLeistungen.length);
   const bestaetigt = kategorien.reduce(
@@ -321,6 +329,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
     if (!name) return;
     onChange({ ...house, eigeneLeistungen: [...eigeneLeistungen, { id: `eigen-${crypto.randomUUID()}`, name }] });
     setNeuerPunkt('');
+    setFilter('alle');
   };
 
   const punktEntfernen = (id: string) => {
@@ -368,6 +377,18 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
             {ohnePreis} separat zu bezahlende {ohnePreis === 1 ? 'Leistung hat' : 'Leistungen haben'} noch keinen Preis.
           </p>
         )}
+        <label className="mt-3 flex w-fit flex-wrap items-center gap-2 text-sm text-slate-700">
+          Anzeigen
+          <select
+            value={filter}
+            onChange={(event) => { setFilter(event.target.value as LeistungsFilter); setOffeneLeistung(null); }}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+          >
+            <option value="alle">Alle Leistungen</option>
+            <option value="ungeklaert">Ungeklärt</option>
+            <option value="ohne_preis">Separat ohne Preis</option>
+          </select>
+        </label>
         <details className="mt-2 text-sm text-slate-600">
           <summary className="w-fit cursor-pointer text-sky-700">Wie werden Preise berechnet?</summary>
           <p className="mt-1 max-w-3xl">
@@ -376,8 +397,11 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
           </p>
         </details>
       </div>
+      {filter !== 'alle' && sichtbareKategorien.length === 0 && sichtbareEigeneLeistungen.length === 0 && (
+        <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">Keine passenden Leistungen gefunden.</p>
+      )}
       <div className="space-y-2">
-        {kategorien.map((kategorie) => {
+        {sichtbareKategorien.map((kategorie) => {
           const anzahlBestaetigt = kategorie.leistungen.filter((leistung) => istGeklaert(leistung.id)).length;
           return (
             <section key={kategorie.id} aria-labelledby={`kategorie-${kategorie.id}`} className="rounded-lg border border-slate-200 bg-white">
@@ -386,7 +410,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
                 <span className="whitespace-nowrap text-xs text-slate-500">{anzahlBestaetigt}/{kategorie.leistungen.length} geklärt</span>
               </div>
               <div className="px-4 pb-2">
-                {kategorie.leistungen.map((leistung) => (
+                {kategorie.sichtbareLeistungen.map((leistung) => (
                   <LeistungsZeile
                     key={leistung.id}
                     house={house}
@@ -404,13 +428,13 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
       <section aria-labelledby="eigene-leistungen-titel" className="rounded-lg border border-slate-200 bg-slate-50">
         <div className="flex items-center gap-3 px-4 py-3">
           <h4 id="eigene-leistungen-titel" className="flex-1 text-sm font-semibold text-slate-900">Eigene Punkte</h4>
-          <span className="text-xs text-slate-500">{eigeneLeistungen.length} Punkte</span>
+          <span className="text-xs text-slate-500">{filter === 'alle' ? eigeneLeistungen.length : sichtbareEigeneLeistungen.length} Punkte</span>
         </div>
         <div className="px-4 pb-4">
         <p className="text-sm text-slate-600">Ergänze Leistungen, die für dein Haus oder dein Angebot wichtig sind.</p>
-        {eigeneLeistungen.length > 0 && (
+        {sichtbareEigeneLeistungen.length > 0 && (
           <div className="mt-3">
-            {eigeneLeistungen.map((leistung) => (
+            {sichtbareEigeneLeistungen.map((leistung) => (
               <LeistungsZeile
                 key={leistung.id}
                 house={house}

@@ -1,5 +1,5 @@
 import type { House } from '../types';
-import { webUrl } from './links';
+import { webUrl } from './links.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -23,6 +23,14 @@ function isHouseLink(value: unknown): boolean {
     && typeof value.url === 'string' && webUrl(value.url) !== null;
 }
 
+function isMaterialAuswahl(value: unknown): boolean {
+  return isRecord(value)
+    && Object.entries(value).every(([field, entry]) => field === 'angaben'
+      ? isMap(entry, isString)
+      : ['ausfuehrung', 'energie', 'schall', 'notizen'].includes(field) && isString(entry))
+    && (value.angaben !== undefined || hasFields(value, ['ausfuehrung', 'energie', 'schall', 'notizen'], isString, true));
+}
+
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 const isString = (value: unknown): value is string => typeof value === 'string';
@@ -43,6 +51,7 @@ function isHouse(value: unknown): value is House {
     && optionalMap(value.leistungspreise, isNumber)
     && (value.notizen === undefined || isString(value.notizen))
     && (value.links === undefined || (Array.isArray(value.links) && value.links.every(isHouseLink)))
+    && optionalMap(value.materialien, isMaterialAuswahl)
     && (value.eigeneLeistungen === undefined || (Array.isArray(value.eigeneLeistungen)
       && value.eigeneLeistungen.every((entry: unknown) => hasFields(entry, ['id', 'name'], isString))));
 }

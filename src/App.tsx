@@ -8,8 +8,13 @@ import { Betriebskosten } from './components/Betriebskosten';
 import { Gesamt } from './components/Gesamt';
 import { Baukosten } from './components/Baukosten';
 import { NotizenUndLinks } from './components/NotizenUndLinks';
+import { Materialien } from './components/Materialien';
+import { Hausvergleich } from './components/Hausvergleich';
+import { HausTeilen } from './components/HausTeilen';
+import { GeteiltesHaus } from './components/GeteiltesHaus';
 import { berechneBaukosten, leereBauposten } from './utils/bauposten';
 import { parseHouseBackup } from './utils/houseBackup';
+import { copySharedHouse } from './utils/shareLinks';
 
 function createHouse(name: string): House {
   return {
@@ -44,6 +49,7 @@ function createHouse(name: string): House {
     eigeneLeistungen: [],
     notizen: '',
     links: [],
+    materialien: {},
   };
 }
 
@@ -84,6 +90,7 @@ export default function App() {
   const [activeHouseId, setActiveHouseId] = useState<string | null>(houses[0]?.id ?? null);
   const [activeTab, setActiveTab] = useState('baukosten');
   const [backupMessage, setBackupMessage] = useState('');
+  const [shareId, setShareId] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('share'));
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const activeHouse = houses.find((h) => h.id === activeHouseId) ?? houses[0] ?? null;
@@ -99,6 +106,8 @@ export default function App() {
   };
 
   const removeHouse = (id: string) => {
+    const houseToRemove = houses.find((house) => house.id === id);
+    if (!houseToRemove || !window.confirm(`Haus „${houseToRemove.name}“ mit allen Angaben löschen? Dies kann nicht rückgängig gemacht werden.`)) return;
     const next = houses.filter((h) => h.id !== id);
     setHouses(next);
     if (activeHouseId === id) {
@@ -138,6 +147,33 @@ export default function App() {
       event.target.value = '';
     }
   };
+
+  const closeShare = () => {
+    const url = new URL(window.location.href);
+    url.hash = '';
+    window.history.replaceState(null, '', url.href);
+    setShareId(null);
+  };
+
+  const importSharedHouse = (sharedHouse: House) => {
+    if (!window.confirm(`Haus „${sharedHouse.name}“ als neue Kopie übernehmen? Bestehende Häuser bleiben erhalten.`)) return;
+    const house = copySharedHouse(sharedHouse, crypto.randomUUID());
+    setHouses([...houses, house]);
+    setActiveHouseId(house.id);
+    setActiveTab('baukosten');
+    closeShare();
+  };
+
+  if (shareId !== null) {
+    return (
+      <div>
+        <GeteiltesHaus shareId={shareId} onImport={importSharedHouse} />
+        <div className="mx-auto max-w-4xl px-4 pb-6 sm:px-6">
+          <button type="button" onClick={closeShare} className="text-sm text-sky-700 underline hover:text-sky-900">Zur eigenen Planung</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
@@ -217,17 +253,26 @@ export default function App() {
             <Tabs.Tab value="baukosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Baukosten
             </Tabs.Tab>
+            <Tabs.Tab value="materialien" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
+              Materialien
+            </Tabs.Tab>
             <Tabs.Tab value="finanzierung" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Finanzierung
             </Tabs.Tab>
             <Tabs.Tab value="betriebskosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Betriebskosten
             </Tabs.Tab>
+            <Tabs.Tab value="notizen-und-links" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
+              Notizen &amp; Links
+            </Tabs.Tab>
             <Tabs.Tab value="gesamt" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Gesamt
             </Tabs.Tab>
-            <Tabs.Tab value="notizen-und-links" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Notizen &amp; Links
+            <Tabs.Tab value="vergleich" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
+              Vergleich
+            </Tabs.Tab>
+            <Tabs.Tab value="teilen" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
+              Teilen
             </Tabs.Tab>
           </Tabs.List>
 
@@ -237,6 +282,9 @@ export default function App() {
               house={activeHouse}
               onChange={updateHouse}
             />
+          </Tabs.Panel>
+          <Tabs.Panel value="materialien" className="pt-4">
+            <Materialien key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
           </Tabs.Panel>
           <Tabs.Panel value="finanzierung" className="pt-4">
             <Finanzierung
@@ -251,11 +299,17 @@ export default function App() {
               onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })}
             />
           </Tabs.Panel>
+          <Tabs.Panel value="notizen-und-links" className="pt-4">
+            <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
+          </Tabs.Panel>
           <Tabs.Panel value="gesamt" className="pt-4">
             <Gesamt house={activeHouse} />
           </Tabs.Panel>
-          <Tabs.Panel value="notizen-und-links" className="pt-4">
-            <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
+          <Tabs.Panel value="vergleich" className="pt-4">
+            <Hausvergleich houses={houses} />
+          </Tabs.Panel>
+          <Tabs.Panel value="teilen" className="pt-4">
+            <HausTeilen key={activeHouse.id} house={activeHouse} />
           </Tabs.Panel>
           </Tabs.Root>
         </>
