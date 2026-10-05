@@ -1,0 +1,45 @@
+import type { Finanzierung as FinanzierungData } from '../types';
+import { NumberInput } from './NumberInput';
+import { berechneFinanzierung } from '../utils/finanzierung';
+
+interface FinanzierungProps {
+  data: FinanzierungData;
+  baukosten: number;
+  onChange: (data: FinanzierungData) => void;
+}
+
+export function Finanzierung({ data, baukosten, onChange }: FinanzierungProps) {
+  const update = (key: keyof FinanzierungData) => (value: number) => {
+    onChange({ ...data, [key]: value });
+  };
+
+  const { gesamtkosten, kreditbetrag, monatsrate } = berechneFinanzierung(data, baukosten);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <NumberInput label="Grundstückspreis" value={data.grundstueckpreis} onValueChange={update('grundstueckpreis')} />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-slate-700">Baukosten</span>
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            {baukosten.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €
+          </span>
+          <span className="text-xs text-slate-500">Im Tab „Baukosten“ bearbeiten</span>
+        </div>
+        <NumberInput label="Eigenkapital" value={data.eigenkapital} onValueChange={update('eigenkapital')} />
+        <NumberInput label="Zinssatz" value={data.zins} onValueChange={update('zins')} unit="%" step={0.1} min={0} />
+        <NumberInput label="Laufzeit" value={data.laufzeit} onValueChange={update('laufzeit')} unit="Jahre" step={1} min={1} />
+        <NumberInput label="Sondertilgung" value={data.sondertilgung} onValueChange={update('sondertilgung')} unit="%/Jahr" step={1} min={0} />
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <h3 className="text-sm font-semibold text-slate-900">Berechnung</h3>
+        <div className="mt-2 space-y-1 text-sm text-slate-700">
+          <p>Gesamtkosten: <strong>{gesamtkosten.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
+          <p>Kreditbedarf: <strong>{kreditbetrag.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
+          <p>Monatsrate: <strong>{monatsrate.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
+        </div>
+      </div>
+    </div>
+  );
+}
