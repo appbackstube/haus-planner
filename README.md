@@ -2,6 +2,8 @@
 
 React-App für Hausbaukosten, Finanzierung und Betriebskosten. Die Eingaben werden im `localStorage` des verwendeten Browsers gespeichert. Sie werden nicht zwischen Geräten synchronisiert und nicht durch GitHub Pages gesichert.
 
+Über **JSON exportieren** kannst du alle Häuser als Datei sichern. Mit **JSON importieren** kannst du diese Datei wieder laden. Der Import ersetzt nach einer Bestätigung alle aktuell gespeicherten Häuser; ungültige Dateien ändern keine Daten.
+
 ## Lokal starten
 
 ```sh

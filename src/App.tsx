@@ -7,6 +7,7 @@ import { Betriebskosten } from './components/Betriebskosten';
 import { Gesamt } from './components/Gesamt';
 import { Baukosten } from './components/Baukosten';
 import { berechneBaukosten, leereBauposten } from './utils/bauposten';
+import { parseHouseBackup } from './utils/houseBackup';
 
 function createHouse(name: string): House {
   return {
@@ -78,6 +79,7 @@ export default function App() {
   const [houses, setHouses] = useLocalStorage<House[]>('hausbau-planner-houses', []);
   const [activeHouseId, setActiveHouseId] = useState<string | null>(houses[0]?.id ?? null);
   const [activeTab, setActiveTab] = useState('finanzierung');
+  const [backupMessage, setBackupMessage] = useState('');
 
   const activeHouse = houses.find((h) => h.id === activeHouseId) ?? houses[0] ?? null;
   const baukosten = activeHouse ? berechneBaukosten(activeHouse).baukosten : 0;
@@ -100,6 +102,33 @@ export default function App() {
 
   const updateHouse = (updated: House) => {
     setHouses(houses.map((h) => (h.id === updated.id ? updated : h)));
+  };
+
+  const exportHouses = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(houses, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'hausbau-planer.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setBackupMessage('JSON-Datei wurde erstellt.');
+  };
+
+  const importHouses = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const imported = parseHouseBackup(await file.text());
+      if (!window.confirm(`Alle vorhandenen Häuser durch ${imported.length} Häuser aus der Datei ersetzen?`)) return;
+      setHouses(imported);
+      setActiveHouseId(imported[0]?.id ?? null);
+      setBackupMessage(`${imported.length} Häuser importiert.`);
+    } catch {
+      setBackupMessage('Import fehlgeschlagen: Die JSON-Datei ist ungültig. Vorhandene Häuser bleiben erhalten.');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   return (
@@ -140,6 +169,17 @@ export default function App() {
         >
           + Haus
         </button>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={exportHouses} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
+          JSON exportieren
+        </button>
+        <label className="cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-within:ring-2 focus-within:ring-sky-500">
+          JSON importieren
+          <input type="file" accept=".json,application/json" onChange={importHouses} className="sr-only" />
+        </label>
+        {backupMessage && <span role="status" className="text-sm text-slate-600">{backupMessage}</span>}
       </div>
 
       {activeHouse ? (
