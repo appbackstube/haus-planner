@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Menu } from '@base-ui/react/menu';
 import { Tabs } from '@base-ui/react/tabs';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type { House } from './types';
@@ -6,6 +7,7 @@ import { Finanzierung } from './components/Finanzierung';
 import { Betriebskosten } from './components/Betriebskosten';
 import { Gesamt } from './components/Gesamt';
 import { Baukosten } from './components/Baukosten';
+import { NotizenUndLinks } from './components/NotizenUndLinks';
 import { berechneBaukosten, leereBauposten } from './utils/bauposten';
 import { parseHouseBackup } from './utils/houseBackup';
 
@@ -40,6 +42,8 @@ function createHouse(name: string): House {
     externeFirmen: {},
     leistungspreise: {},
     eigeneLeistungen: [],
+    notizen: '',
+    links: [],
   };
 }
 
@@ -78,8 +82,9 @@ function HouseNameEditor({ house, onRename }: { house: House; onRename: (name: s
 export default function App() {
   const [houses, setHouses] = useLocalStorage<House[]>('hausbau-planner-houses', []);
   const [activeHouseId, setActiveHouseId] = useState<string | null>(houses[0]?.id ?? null);
-  const [activeTab, setActiveTab] = useState('finanzierung');
+  const [activeTab, setActiveTab] = useState('baukosten');
   const [backupMessage, setBackupMessage] = useState('');
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const activeHouse = houses.find((h) => h.id === activeHouseId) ?? houses[0] ?? null;
   const baukosten = activeHouse ? berechneBaukosten(activeHouse).baukosten : 0;
@@ -90,6 +95,7 @@ export default function App() {
     const house = createHouse(`Haus ${nummer}`);
     setHouses([...houses, house]);
     setActiveHouseId(house.id);
+    setActiveTab('baukosten');
   };
 
   const removeHouse = (id: string) => {
@@ -97,6 +103,7 @@ export default function App() {
     setHouses(next);
     if (activeHouseId === id) {
       setActiveHouseId(next[0]?.id ?? null);
+      setActiveTab('baukosten');
     }
   };
 
@@ -123,6 +130,7 @@ export default function App() {
       if (!window.confirm(`Alle vorhandenen Häuser durch ${imported.length} Häuser aus der Datei ersetzen?`)) return;
       setHouses(imported);
       setActiveHouseId(imported[0]?.id ?? null);
+      setActiveTab('baukosten');
       setBackupMessage(`${imported.length} Häuser importiert.`);
     } catch {
       setBackupMessage('Import fehlgeschlagen: Die JSON-Datei ist ungültig. Vorhandene Häuser bleiben erhalten.');
@@ -143,7 +151,7 @@ export default function App() {
           <div key={house.id} className="flex overflow-hidden rounded-md">
             <button
               type="button"
-              onClick={() => setActiveHouseId(house.id)}
+              onClick={() => { setActiveHouseId(house.id); setActiveTab('baukosten'); }}
               aria-current={house.id === activeHouse.id ? 'true' : undefined}
               className={`px-3 py-1.5 text-sm font-medium ${
                 house.id === activeHouse.id
@@ -169,18 +177,33 @@ export default function App() {
         >
           + Haus
         </button>
+        <div className="ml-auto">
+          <Menu.Root>
+            <Menu.Trigger aria-label="Weitere Optionen" className="flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-sky-500">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="size-5">
+                <circle cx="12" cy="5" r="1.75" />
+                <circle cx="12" cy="12" r="1.75" />
+                <circle cx="12" cy="19" r="1.75" />
+              </svg>
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner align="end" sideOffset={6} className="z-50 outline-none">
+                <Menu.Popup className="min-w-44 rounded-md border border-slate-200 bg-white p-1 shadow-lg outline-none">
+                  <Menu.Item onClick={exportHouses} className="cursor-pointer rounded px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-sky-100 data-[highlighted]:text-sky-900">
+                    JSON exportieren
+                  </Menu.Item>
+                  <Menu.Item onClick={() => importInputRef.current?.click()} className="cursor-pointer rounded px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-sky-100 data-[highlighted]:text-sky-900">
+                    JSON importieren
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </div>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={exportHouses} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
-          JSON exportieren
-        </button>
-        <label className="cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-within:ring-2 focus-within:ring-sky-500">
-          JSON importieren
-          <input type="file" accept=".json,application/json" onChange={importHouses} className="sr-only" />
-        </label>
-        {backupMessage && <span role="status" className="text-sm text-slate-600">{backupMessage}</span>}
-      </div>
+      <input ref={importInputRef} type="file" accept=".json,application/json" onChange={importHouses} className="hidden" aria-label="JSON-Datei importieren" />
+      {backupMessage && <p role="status" className="mb-5 text-sm text-slate-600">{backupMessage}</p>}
 
       {activeHouse ? (
         <>
@@ -191,17 +214,20 @@ export default function App() {
           />
           <Tabs.Root value={activeTab} onValueChange={(newValue) => setActiveTab(newValue as string)}>
           <Tabs.List className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-px whitespace-nowrap">
-            <Tabs.Tab value="baukosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[selected]:border-b-2 data-[selected]:border-sky-600 data-[selected]:text-sky-700">
+            <Tabs.Tab value="baukosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Baukosten
             </Tabs.Tab>
-            <Tabs.Tab value="finanzierung" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[selected]:border-b-2 data-[selected]:border-sky-600 data-[selected]:text-sky-700">
+            <Tabs.Tab value="finanzierung" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Finanzierung
             </Tabs.Tab>
-            <Tabs.Tab value="betriebskosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[selected]:border-b-2 data-[selected]:border-sky-600 data-[selected]:text-sky-700">
+            <Tabs.Tab value="betriebskosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Betriebskosten
             </Tabs.Tab>
-            <Tabs.Tab value="gesamt" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[selected]:border-b-2 data-[selected]:border-sky-600 data-[selected]:text-sky-700">
+            <Tabs.Tab value="gesamt" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
               Gesamt
+            </Tabs.Tab>
+            <Tabs.Tab value="notizen-und-links" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
+              Notizen &amp; Links
             </Tabs.Tab>
           </Tabs.List>
 
@@ -227,6 +253,9 @@ export default function App() {
           </Tabs.Panel>
           <Tabs.Panel value="gesamt" className="pt-4">
             <Gesamt house={activeHouse} />
+          </Tabs.Panel>
+          <Tabs.Panel value="notizen-und-links" className="pt-4">
+            <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
           </Tabs.Panel>
           </Tabs.Root>
         </>

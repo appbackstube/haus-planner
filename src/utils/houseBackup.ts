@@ -1,4 +1,5 @@
 import type { House } from '../types';
+import { webUrl } from './links';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -15,6 +16,11 @@ function isMap(value: unknown, check: (entry: unknown) => boolean): boolean {
 
 function optionalMap(value: unknown, check: (entry: unknown) => boolean): boolean {
   return value === undefined || isMap(value, check);
+}
+
+function isHouseLink(value: unknown): boolean {
+  return isRecord(value) && hasFields(value, ['id', 'titel', 'url'], isString)
+    && typeof value.url === 'string' && webUrl(value.url) !== null;
 }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
@@ -35,6 +41,8 @@ function isHouse(value: unknown): value is House {
     && optionalMap(value.ausfuehrung, (entry) => ['offen', 'hausanbieter', 'eigenleistung', 'externer_betrieb'].includes(String(entry)))
     && optionalMap(value.externeFirmen, isString)
     && optionalMap(value.leistungspreise, isNumber)
+    && (value.notizen === undefined || isString(value.notizen))
+    && (value.links === undefined || (Array.isArray(value.links) && value.links.every(isHouseLink)))
     && (value.eigeneLeistungen === undefined || (Array.isArray(value.eigeneLeistungen)
       && value.eigeneLeistungen.every((entry: unknown) => hasFields(entry, ['id', 'name'], isString))));
 }

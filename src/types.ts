@@ -11,6 +11,14 @@ export interface House {
   externeFirmen?: Record<string, string>;
   leistungspreise?: Record<string, number>;
   eigeneLeistungen?: EigeneLeistung[];
+  notizen?: string;
+  links?: HouseLink[];
+}
+
+export interface HouseLink {
+  id: string;
+  titel: string;
+  url: string;
 }
 
 export type Leistungsstatus = 'ungeklaert' | 'im_hauspreis' | 'separat' | 'nicht_benoetigt';
