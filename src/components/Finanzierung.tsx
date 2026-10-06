@@ -24,7 +24,7 @@ export function Finanzierung({ data, baukosten, onChange }: FinanzierungProps) {
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             {baukosten.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €
           </span>
-          <span className="text-xs text-slate-500">Im Tab „Baukosten“ bearbeiten</span>
+          <span className="text-xs text-slate-500">Unter „Kosten → Baukosten“ bearbeiten</span>
         </div>
         <NumberInput label="Eigenkapital" value={data.eigenkapital} onValueChange={update('eigenkapital')} />
         <NumberInput label="Zinssatz" value={data.zins} onValueChange={update('zins')} unit="%" step={0.1} min={0} />

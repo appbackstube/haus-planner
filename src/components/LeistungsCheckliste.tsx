@@ -26,6 +26,22 @@ interface Kategorie {
 
 const kategorien: Kategorie[] = [
   {
+    id: 'planung',
+    titel: 'Planung & Baugrund',
+    leistungen: [
+      { id: 'planung', name: 'Planung und Genehmigungen', prioritaet: 'Hoch' },
+      { id: 'einreichplan', name: 'Einreichplan', prioritaet: 'Hoch' },
+      { id: 'ausfuehrungsplan', name: 'Ausführungs- und Detailpläne', prioritaet: 'Hoch' },
+      { id: 'vermessung', name: 'Grundstücksvermessung', prioritaet: 'Hoch' },
+      { id: 'bodengutachten', name: 'Bodengutachten', prioritaet: 'Hoch' },
+      { id: 'statik', name: 'Statik und Tragwerksplanung', prioritaet: 'Hoch' },
+      { id: 'elektroplanung', name: 'Elektro- und Lichtplanung', prioritaet: 'Mittel' },
+      { id: 'sanitaerplanung', name: 'Bad- und Sanitärplanung', prioritaet: 'Mittel' },
+      { id: 'behoerdengebuehren', name: 'Behördengebühren im Angebot berücksichtigt', prioritaet: 'Mittel' },
+      { id: 'energieausweis', name: 'Energieausweis', prioritaet: 'Mittel' },
+    ],
+  },
+  {
     id: 'vertrag',
     titel: 'Vertrag & Leistungsumfang',
     leistungen: [
@@ -40,19 +56,15 @@ const kategorien: Kategorie[] = [
     ],
   },
   {
-    id: 'planung',
-    titel: 'Planung & Baugrund',
+    id: 'baustelle',
+    titel: 'Baustelle & Bauausführung',
     leistungen: [
-      { id: 'planung', name: 'Planung und Genehmigungen', prioritaet: 'Hoch' },
-      { id: 'einreichplan', name: 'Einreichplan', prioritaet: 'Hoch' },
-      { id: 'ausfuehrungsplan', name: 'Ausführungs- und Detailpläne', prioritaet: 'Hoch' },
-      { id: 'vermessung', name: 'Grundstücksvermessung', prioritaet: 'Hoch' },
-      { id: 'bodengutachten', name: 'Bodengutachten', prioritaet: 'Hoch' },
-      { id: 'statik', name: 'Statik und Tragwerksplanung', prioritaet: 'Hoch' },
-      { id: 'elektroplanung', name: 'Elektro- und Lichtplanung', prioritaet: 'Mittel' },
-      { id: 'sanitaerplanung', name: 'Bad- und Sanitärplanung', prioritaet: 'Mittel' },
-      { id: 'behoerdengebuehren', name: 'Behördengebühren im Angebot berücksichtigt', prioritaet: 'Mittel' },
-      { id: 'energieausweis', name: 'Energieausweis', prioritaet: 'Mittel' },
+      { id: 'baustelleneinrichtung', name: 'Baustelleneinrichtung, Gerüste und Bauzaun', prioritaet: 'Hoch' },
+      { id: 'baustrom', name: 'Baustrom und Bauwasser', prioritaet: 'Hoch' },
+      { id: 'baustellenzufahrt', name: 'Baustellenzufahrt und Lagerfläche', prioritaet: 'Mittel' },
+      { id: 'baustellenkoordination', name: 'Baustellenkoordination / Bauaufsicht', prioritaet: 'Mittel' },
+      { id: 'bauschutt', name: 'Bauschuttentsorgung', prioritaet: 'Mittel' },
+      { id: 'bauversicherung', name: 'Bauversicherung im Leistungsumfang', prioritaet: 'Optional' },
     ],
   },
   {
@@ -138,18 +150,6 @@ const kategorien: Kategorie[] = [
       { id: 'garage', name: 'Garage oder Carport', prioritaet: 'Optional' },
       { id: 'garten', name: 'Gartengestaltung', prioritaet: 'Optional' },
       { id: 'zaun', name: 'Zaun oder Einfriedung', prioritaet: 'Optional' },
-    ],
-  },
-  {
-    id: 'baustelle',
-    titel: 'Baustelle & Bauausführung',
-    leistungen: [
-      { id: 'baustelleneinrichtung', name: 'Baustelleneinrichtung, Gerüste und Bauzaun', prioritaet: 'Hoch' },
-      { id: 'baustrom', name: 'Baustrom und Bauwasser', prioritaet: 'Hoch' },
-      { id: 'baustellenzufahrt', name: 'Baustellenzufahrt und Lagerfläche', prioritaet: 'Mittel' },
-      { id: 'baustellenkoordination', name: 'Baustellenkoordination / Bauaufsicht', prioritaet: 'Mittel' },
-      { id: 'bauschutt', name: 'Bauschuttentsorgung', prioritaet: 'Mittel' },
-      { id: 'bauversicherung', name: 'Bauversicherung im Leistungsumfang', prioritaet: 'Optional' },
     ],
   },
   {

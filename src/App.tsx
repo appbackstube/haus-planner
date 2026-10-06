@@ -1,7 +1,5 @@
 import { useRef, useState } from 'react';
-import { Menu } from '@base-ui/react/menu';
-import { Tabs } from '@base-ui/react/tabs';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { usePlanner } from './hooks/usePlanner';
 import type { House } from './types';
 import { Finanzierung } from './components/Finanzierung';
 import { Betriebskosten } from './components/Betriebskosten';
@@ -11,10 +9,25 @@ import { NotizenUndLinks } from './components/NotizenUndLinks';
 import { Materialien } from './components/Materialien';
 import { Hausvergleich } from './components/Hausvergleich';
 import { HausTeilen } from './components/HausTeilen';
-import { GeteiltesHaus } from './components/GeteiltesHaus';
+import { AppShell } from './components/AppShell';
+import { Ueberblick } from './components/Ueberblick';
 import { berechneBaukosten, leereBauposten } from './utils/bauposten';
 import { parseHouseBackup } from './utils/houseBackup';
-import { copySharedHouse } from './utils/shareLinks';
+import { beispielBetriebskosten } from './utils/ueberblick';
+import { zielFuerBereich } from './utils/navigation';
+import type { Hauptbereich, Hausbereich, Kostenbereich } from './utils/navigation';
+
+const kostenbereiche: { id: Kostenbereich; label: string }[] = [
+  { id: 'baukosten', label: 'Baukosten' },
+  { id: 'finanzierung', label: 'Finanzierung' },
+  { id: 'betriebskosten', label: 'Laufende Kosten' },
+  { id: 'gesamt', label: 'Monatsübersicht' },
+];
+
+const hausbereiche: { id: Hausbereich; label: string }[] = [
+  { id: 'materialien', label: 'Materialien' },
+  { id: 'notizen-und-links', label: 'Notizen & Links' },
+];
 
 function createHouse(name: string): House {
   return {
@@ -28,17 +41,7 @@ function createHouse(name: string): House {
       laufzeit: 30,
       sondertilgung: 0,
     },
-    betriebskosten: {
-      heizung: 100,
-      strom: 80,
-      wasser: 25,
-      abwasser: 20,
-      muell: 20,
-      versicherung: 50,
-      grundsteuer: 30,
-      internet: 40,
-      instandhaltung: 100,
-    },
+    betriebskosten: { ...beispielBetriebskosten },
     bauposten: leereBauposten(),
     inkludierteLeistungen: {},
     ausgeschlosseneLeistungen: {},
@@ -53,17 +56,19 @@ function createHouse(name: string): House {
   };
 }
 
-function HouseNameEditor({ house, onRename }: { house: House; onRename: (name: string) => void }) {
+function HouseNameEditor({ house, onRename, onClose }: { house: House; onRename: (name: string) => void; onClose: () => void }) {
   const [draft, setDraft] = useState(house.name);
 
   const save = () => {
     const name = draft.trim();
     if (!name) {
       setDraft(house.name);
+      onClose();
       return;
     }
     setDraft(name);
     if (name !== house.name) onRename(name);
+    onClose();
   };
 
   return (
@@ -71,6 +76,7 @@ function HouseNameEditor({ house, onRename }: { house: House; onRename: (name: s
       <label className="flex min-w-48 flex-1 flex-col gap-1">
         <span className="text-sm font-medium text-slate-700">Name des Hauses</span>
         <input
+          autoFocus
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={save}
@@ -86,15 +92,32 @@ function HouseNameEditor({ house, onRename }: { house: House; onRename: (name: s
 }
 
 export default function App() {
-  const [houses, setHouses] = useLocalStorage<House[]>('hausbau-planner-houses', []);
-  const [activeHouseId, setActiveHouseId] = useState<string | null>(houses[0]?.id ?? null);
-  const [activeTab, setActiveTab] = useState('baukosten');
+  const { houses, setHouses, ready, loadError, status, link } = usePlanner();
+  const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<Hauptbereich>('ueberblick');
+  const [costSection, setCostSection] = useState<Kostenbereich>('baukosten');
+  const [houseSection, setHouseSection] = useState<Hausbereich>('materialien');
+  const [shareOpen, setShareOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [backupMessage, setBackupMessage] = useState('');
-  const [shareId, setShareId] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('share'));
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const activeHouse = houses.find((h) => h.id === activeHouseId) ?? houses[0] ?? null;
   const baukosten = activeHouse ? berechneBaukosten(activeHouse).baukosten : 0;
+
+  const showOverview = () => {
+    setActiveSection('ueberblick');
+    setShareOpen(false);
+    setRenaming(false);
+  };
+
+  const navigateTo = (bereich: string) => {
+    const ziel = zielFuerBereich(bereich);
+    if (ziel.kostenbereich) setCostSection(ziel.kostenbereich);
+    if (ziel.hausbereich) setHouseSection(ziel.hausbereich);
+    setActiveSection(ziel.hauptbereich);
+    setShareOpen(false);
+  };
 
   const addHouse = () => {
     let nummer = 1;
@@ -102,7 +125,7 @@ export default function App() {
     const house = createHouse(`Haus ${nummer}`);
     setHouses([...houses, house]);
     setActiveHouseId(house.id);
-    setActiveTab('baukosten');
+    showOverview();
   };
 
   const removeHouse = (id: string) => {
@@ -112,7 +135,7 @@ export default function App() {
     setHouses(next);
     if (activeHouseId === id) {
       setActiveHouseId(next[0]?.id ?? null);
-      setActiveTab('baukosten');
+      showOverview();
     }
   };
 
@@ -139,7 +162,7 @@ export default function App() {
       if (!window.confirm(`Alle vorhandenen Häuser durch ${imported.length} Häuser aus der Datei ersetzen?`)) return;
       setHouses(imported);
       setActiveHouseId(imported[0]?.id ?? null);
-      setActiveTab('baukosten');
+      showOverview();
       setBackupMessage(`${imported.length} Häuser importiert.`);
     } catch {
       setBackupMessage('Import fehlgeschlagen: Die JSON-Datei ist ungültig. Vorhandene Häuser bleiben erhalten.');
@@ -148,176 +171,84 @@ export default function App() {
     }
   };
 
-  const closeShare = () => {
-    const url = new URL(window.location.href);
-    url.hash = '';
-    window.history.replaceState(null, '', url.href);
-    setShareId(null);
-  };
-
-  const importSharedHouse = (sharedHouse: House) => {
-    if (!window.confirm(`Haus „${sharedHouse.name}“ als neue Kopie übernehmen? Bestehende Häuser bleiben erhalten.`)) return;
-    const house = copySharedHouse(sharedHouse, crypto.randomUUID());
-    setHouses([...houses, house]);
-    setActiveHouseId(house.id);
-    setActiveTab('baukosten');
-    closeShare();
-  };
-
-  if (shareId !== null) {
-    return (
-      <div>
-        <GeteiltesHaus shareId={shareId} onImport={importSharedHouse} />
-        <div className="mx-auto max-w-4xl px-4 pb-6 sm:px-6">
-          <button type="button" onClick={closeShare} className="text-sm text-sky-700 underline hover:text-sky-900">Zur eigenen Planung</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Hausbau Planer</h1>
-        <p className="text-sm text-slate-500">Finanzierung und Betriebskosten für mehrere Häuser planen</p>
-      </header>
+    <AppShell
+      loading={!ready && !loadError}
+      blocked={!ready && loadError}
+      status={status}
+      houses={houses}
+      activeHouseId={activeHouse?.id ?? null}
+      onSelectHouse={(id) => { setActiveHouseId(id); showOverview(); }}
+      onAddHouse={addHouse}
+      canAddHouse={ready}
+      shareOpen={shareOpen}
+      onShare={() => setShareOpen((offen) => !offen)}
+      onExport={exportHouses}
+      onImport={() => importInputRef.current?.click()}
+      onRename={() => setRenaming(true)}
+      onDelete={() => { if (activeHouse) removeHouse(activeHouse.id); }}
+      activeSection={activeSection}
+      onNavigate={(section) => { setActiveSection(section); setShareOpen(false); }}
+      navigationEnabled={ready && !!activeHouse}
+    >
+      {ready && <>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {houses.map((house) => (
-          <div key={house.id} className="flex overflow-hidden rounded-md">
-            <button
-              type="button"
-              onClick={() => { setActiveHouseId(house.id); setActiveTab('baukosten'); }}
-              aria-current={house.id === activeHouse.id ? 'true' : undefined}
-              className={`px-3 py-1.5 text-sm font-medium ${
-                house.id === activeHouse.id
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {house.name}
-            </button>
-            <button
-              type="button"
-              aria-label={`${house.name} löschen`}
-              onClick={() => removeHouse(house.id)}
-              className={`px-2 text-sm ${house.id === activeHouse.id ? 'bg-sky-600 text-white hover:bg-sky-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-            >
-              ×
-            </button>
-          </div>
+      {activeHouse && activeSection === 'kosten' && <nav aria-label="Kostenbereiche" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+        {kostenbereiche.map(({ id, label }) => (
+          <button key={id} type="button" aria-current={costSection === id ? 'page' : undefined} onClick={() => setCostSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${costSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
         ))}
-        <button
-          onClick={addHouse}
-          className="rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-500 hover:border-slate-400 hover:text-slate-700"
-        >
-          + Haus
-        </button>
-        <div className="ml-auto">
-          <Menu.Root>
-            <Menu.Trigger aria-label="Weitere Optionen" className="flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-sky-500">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="size-5">
-                <circle cx="12" cy="5" r="1.75" />
-                <circle cx="12" cy="12" r="1.75" />
-                <circle cx="12" cy="19" r="1.75" />
-              </svg>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Positioner align="end" sideOffset={6} className="z-50 outline-none">
-                <Menu.Popup className="min-w-44 rounded-md border border-slate-200 bg-white p-1 shadow-lg outline-none">
-                  <Menu.Item onClick={exportHouses} className="cursor-pointer rounded px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-sky-100 data-[highlighted]:text-sky-900">
-                    JSON exportieren
-                  </Menu.Item>
-                  <Menu.Item onClick={() => importInputRef.current?.click()} className="cursor-pointer rounded px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-sky-100 data-[highlighted]:text-sky-900">
-                    JSON importieren
-                  </Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        </div>
-      </div>
+      </nav>}
+      {activeHouse && activeSection === 'haus' && <nav aria-label="Hausbereiche" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+        {hausbereiche.map(({ id, label }) => (
+          <button key={id} type="button" aria-current={houseSection === id ? 'page' : undefined} onClick={() => setHouseSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${houseSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
+        ))}
+      </nav>}
 
       <input ref={importInputRef} type="file" accept=".json,application/json" onChange={importHouses} className="hidden" aria-label="JSON-Datei importieren" />
       {backupMessage && <p role="status" className="mb-5 text-sm text-slate-600">{backupMessage}</p>}
 
       {activeHouse ? (
         <>
-          <HouseNameEditor
-            key={activeHouse.id}
-            house={activeHouse}
-            onRename={(name) => updateHouse({ ...activeHouse, name })}
-          />
-          <Tabs.Root value={activeTab} onValueChange={(newValue) => setActiveTab(newValue as string)}>
-          <Tabs.List className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-px whitespace-nowrap">
-            <Tabs.Tab value="baukosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Baukosten
-            </Tabs.Tab>
-            <Tabs.Tab value="materialien" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Materialien
-            </Tabs.Tab>
-            <Tabs.Tab value="finanzierung" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Finanzierung
-            </Tabs.Tab>
-            <Tabs.Tab value="betriebskosten" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Betriebskosten
-            </Tabs.Tab>
-            <Tabs.Tab value="notizen-und-links" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Notizen &amp; Links
-            </Tabs.Tab>
-            <Tabs.Tab value="gesamt" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Gesamt
-            </Tabs.Tab>
-            <Tabs.Tab value="vergleich" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Vergleich
-            </Tabs.Tab>
-            <Tabs.Tab value="teilen" className="rounded-t-md px-4 py-2 text-sm font-medium text-slate-600 data-[active]:border-b-2 data-[active]:border-sky-600 data-[active]:bg-sky-100 data-[active]:text-sky-800">
-              Teilen
-            </Tabs.Tab>
-          </Tabs.List>
-
-          <Tabs.Panel value="baukosten" className="pt-4">
-            <Baukosten
-              key={activeHouse.id}
-              house={activeHouse}
-              onChange={updateHouse}
-            />
-          </Tabs.Panel>
-          <Tabs.Panel value="materialien" className="pt-4">
-            <Materialien key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
-          </Tabs.Panel>
-          <Tabs.Panel value="finanzierung" className="pt-4">
-            <Finanzierung
-              data={activeHouse.finanzierung}
-              baukosten={baukosten}
-              onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })}
-            />
-          </Tabs.Panel>
-          <Tabs.Panel value="betriebskosten" className="pt-4">
-            <Betriebskosten
-              data={activeHouse.betriebskosten}
-              onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })}
-            />
-          </Tabs.Panel>
-          <Tabs.Panel value="notizen-und-links" className="pt-4">
-            <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
-          </Tabs.Panel>
-          <Tabs.Panel value="gesamt" className="pt-4">
-            <Gesamt house={activeHouse} />
-          </Tabs.Panel>
-          <Tabs.Panel value="vergleich" className="pt-4">
+          {renaming && <HouseNameEditor key={activeHouse.id} house={activeHouse} onRename={(name) => updateHouse({ ...activeHouse, name })} onClose={() => setRenaming(false)} />}
+          {shareOpen && <div id="teilen-bereich" className="mb-6">
+            <div className="mb-2 flex justify-end"><button type="button" onClick={() => setShareOpen(false)} className="text-sm text-slate-600 underline-offset-4 hover:text-sky-700 hover:underline focus-visible:outline-2 focus-visible:outline-sky-600">Schließen</button></div>
+            <HausTeilen link={link} />
+          </div>}
+          {activeSection === 'ueberblick' && <section>
+            <Ueberblick house={activeHouse} onNavigate={navigateTo} />
+          </section>}
+          {activeSection === 'kosten' && <section aria-label={kostenbereiche.find(({ id }) => id === costSection)?.label}>
+            {costSection === 'baukosten' && <Baukosten key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
+            {costSection === 'finanzierung' && <Finanzierung data={activeHouse.finanzierung} baukosten={baukosten} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
+            {costSection === 'betriebskosten' && <Betriebskosten data={activeHouse.betriebskosten} onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })} />}
+            {costSection === 'gesamt' && <Gesamt house={activeHouse} />}
+          </section>}
+          {activeSection === 'haus' && <section aria-label={hausbereiche.find(({ id }) => id === houseSection)?.label}>
+            {houseSection === 'materialien' && <Materialien key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
+            {houseSection === 'notizen-und-links' && <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
+          </section>}
+          {activeSection === 'vergleich' && <section>
             <Hausvergleich houses={houses} />
-          </Tabs.Panel>
-          <Tabs.Panel value="teilen" className="pt-4">
-            <HausTeilen key={activeHouse.id} house={activeHouse} />
-          </Tabs.Panel>
-          </Tabs.Root>
+          </section>}
         </>
       ) : (
-        <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-          Noch kein Haus angelegt. Klicke auf „+ Haus" um zu starten.
-        </p>
+        <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+          <div className="bg-gradient-to-br from-sky-800 to-teal-700 px-6 py-10 text-white sm:px-10 sm:py-14">
+            <p className="text-sm font-medium text-sky-100">Dein Weg zum eigenen Haus</p>
+            <h2 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">Endlich Klarheit bei den Hauskosten.</h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-sky-50">Du musst nicht alles wissen. Starte mit einem groben Hauspreis. Wir zeigen dir dann, welche Kosten dazukommen und was monatlich auf dich zukommt.</p>
+            <button type="button" onClick={addHouse} className="mt-7 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-sky-900 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              Erstes Haus planen
+            </button>
+          </div>
+          <div className="grid gap-6 px-6 py-8 sm:grid-cols-3 sm:px-10">
+            <div><span className="text-sm font-bold text-sky-700">01 · Haus</span><h3 className="mt-1 font-semibold text-slate-900">Grob planen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Trage einen ersten Preis ein. Du kannst ihn später ändern.</p></div>
+            <div><span className="text-sm font-bold text-sky-700">02 · Geld</span><h3 className="mt-1 font-semibold text-slate-900">Monatliche Rate sehen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Ergänze Grundstück, Eigenkapital und Kreditdaten.</p></div>
+            <div><span className="text-sm font-bold text-sky-700">03 · Alltag</span><h3 className="mt-1 font-semibold text-slate-900">Laufende Kosten prüfen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Passe die Beispielwerte an deine Situation an.</p></div>
+          </div>
+        </section>
       )}
-    </div>
+      </>}
+    </AppShell>
   );
 }

@@ -7,7 +7,9 @@ import { passtLeistungsFilter } from '../src/utils/leistungsFilter.ts';
 import { hatOffeneAngaben } from '../src/utils/materialien.ts';
 import { hausKennzahlen, materialKurzinfo } from '../src/utils/vergleich.ts';
 import { readStoredValue, writeStoredValue } from '../src/utils/localStorage.ts';
-import { copySharedHouse, shareIdFromHash, shareLink, sharedHouseFromPayload } from '../src/utils/shareLinks.ts';
+import { canInitializeDocument, createIdentity, identityFromPath, plannerLink, resolveIdentity, encryptHouses, decryptHouses, writeToken } from '../src/utils/plannerStorage.ts';
+import { beispielBetriebskosten, ueberblickWerte } from '../src/utils/ueberblick.ts';
+import { zielFuerBereich } from '../src/utils/navigation.ts';
 
 function house() {
   return {
@@ -74,22 +76,75 @@ test('Fehlender oder gesperrter Browser-Speicher führt zu sicherem Fallback', (
   assert.equal(writeStoredValue(() => ({ setItem: () => {} }), 'houses', [house()]), true);
 });
 
-test('Freigabe-Link bleibt im App-Pfad und sendet die ID nur im Fragment', () => {
-  const id = 'd81aec22-c73d-42cd-9fac-015af8e7bf49';
-  const url = new URL(shareLink('https://beispiel.github.io/haus-planner/?utm=1#alt', id));
-  assert.equal(url.pathname, '/haus-planner/');
-  assert.equal(url.search, '?utm=1');
-  assert.equal(url.hash, `#share=${id}`);
-  assert.equal(shareIdFromHash(url.hash), id);
-  assert.equal(shareIdFromHash('#share=ungueltig'), null);
+test('Link verwendet den App-Basispfad und bleibt im Browser gespeichert', () => {
+  const values = new Map();
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  const initial = resolveIdentity(storage, 'https://beispiel.github.io/haus-planner/', '/haus-planner/');
+  const url = plannerLink('https://beispiel.github.io/haus-planner/?utm=1#alt', '/haus-planner/', initial);
+  assert.equal(new URL(url).pathname, `/haus-planner/${initial.id}/${initial.key}`);
+  assert.equal(new URL(url).search, '');
+  assert.deepEqual(identityFromPath(new URL(url).pathname, '/haus-planner/'), initial);
+  assert.deepEqual(resolveIdentity(storage, 'https://beispiel.github.io/haus-planner/', '/haus-planner/'), initial);
+  assert.equal(canInitializeDocument(storage, initial), true);
+  assert.equal(identityFromPath('/haus-planner/ungueltig/schluessel', '/haus-planner/'), null);
+  const shared = createIdentity();
+  assert.deepEqual(resolveIdentity(storage, plannerLink(url, '/haus-planner/', shared), '/haus-planner/'), shared);
+  assert.deepEqual(resolveIdentity(storage, 'https://beispiel.github.io/haus-planner/', '/haus-planner/'), initial);
+  const visitorValues = new Map();
+  const visitorStorage = { getItem: (key) => visitorValues.get(key) ?? null, setItem: (key, value) => visitorValues.set(key, value) };
+  resolveIdentity(visitorStorage, plannerLink(url, '/haus-planner/', shared), '/haus-planner/');
+  assert.equal(canInitializeDocument(visitorStorage, shared), false);
+  const visitorOwn = resolveIdentity(visitorStorage, 'https://beispiel.github.io/haus-planner/', '/haus-planner/');
+  assert.notEqual(visitorOwn.id, shared.id);
+  assert.equal(canInitializeDocument(visitorStorage, visitorOwn), true);
 });
 
-test('Geteiltes Haus wird validiert und nur als neue ID übernommen', () => {
-  const original = house();
-  assert.deepEqual(sharedHouseFromPayload(original), original);
-  assert.throws(() => sharedHouseFromPayload({ ...original, name: '' }), /keine gültige Liste/);
-  const copied = copySharedHouse(original, 'neue-id');
-  assert.equal(copied.id, 'neue-id');
-  assert.equal(original.id, 'haus-1');
-  assert.equal(copied.finanzierung.baukosten, original.finanzierung.baukosten);
+test('Nur der korrekte Schlüssel entschlüsselt die Daten', async () => {
+  const identity = createIdentity();
+  const payload = await encryptHouses([house()], identity);
+  assert.deepEqual(await decryptHouses(payload, identity), [house()]);
+  assert.notEqual(payload.data, JSON.stringify([house()]));
+  assert.notDeepEqual(await encryptHouses([house()], identity), payload);
+  await assert.rejects(decryptHouses(payload, { ...identity, key: createIdentity().key }));
+  await assert.rejects(decryptHouses({ ...payload, data: `${payload.data.slice(0, -2)}AA` }, identity));
+  await assert.rejects(decryptHouses({ ...payload, iv: 'invalid' }, identity));
+  assert.notEqual(await writeToken(identity), identity.key);
+});
+
+test('Überblick zeigt bei neuem Haus keine erfundenen Baukosten oder Kreditrate', () => {
+  const neu = {
+    ...house(),
+    finanzierung: { ...house().finanzierung, grundstueckpreis: 0, baukosten: 0, eigenkapital: 0 },
+    bauposten: { hauspreis: 0, fundamentplatte: 0, erdarbeiten: 0, entsorgung: 0, hausanschluesse: 0, planung: 0, aussenanlagen: 0, reserve: 0 },
+    leistungsstatus: {},
+    leistungspreise: {},
+    betriebskosten: { ...beispielBetriebskosten },
+  };
+  const leer = ueberblickWerte(neu);
+  assert.equal(leer.baukosten, null);
+  assert.equal(leer.monatsrate, null);
+  assert.equal(leer.gesamtMonat, null);
+  assert.equal(leer.betriebskostenUnveraendert, true);
+  assert.equal(leer.naechsterSchritt.tab, 'baukosten');
+
+  const mitPreis = ueberblickWerte({ ...neu, bauposten: { ...neu.bauposten, hauspreis: 200000 } });
+  assert.equal(mitPreis.baukosten, 200000);
+  assert.equal(mitPreis.naechsterSchritt.tab, 'betriebskosten');
+  assert.ok(mitPreis.gesamtMonat > mitPreis.monatsrate);
+
+  const angepasst = ueberblickWerte({ ...neu, bauposten: { ...neu.bauposten, hauspreis: 200000 }, betriebskosten: { ...neu.betriebskosten, heizung: 120 } });
+  assert.equal(angepasst.betriebskostenUnveraendert, false);
+  assert.equal(angepasst.naechsterSchritt, null);
+  assert.equal(angepasst.gesamtMonat, angepasst.monatsrate + angepasst.betriebskosten);
+});
+
+test('Alle bisherigen Detailbereiche bleiben über die neue Navigation erreichbar', () => {
+  for (const bereich of ['baukosten', 'finanzierung', 'betriebskosten', 'gesamt']) {
+    assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'kosten', kostenbereich: bereich });
+  }
+  for (const bereich of ['materialien', 'notizen-und-links']) {
+    assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'haus', hausbereich: bereich });
+  }
+  assert.deepEqual(zielFuerBereich('vergleich'), { hauptbereich: 'vergleich' });
+  assert.deepEqual(zielFuerBereich('ueberblick'), { hauptbereich: 'ueberblick' });
 });
