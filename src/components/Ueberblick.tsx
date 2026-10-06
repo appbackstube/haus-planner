@@ -39,14 +39,14 @@ export function Ueberblick({ house, onNavigate }: { house: House; onNavigate: (t
             <p className="mt-2 text-xs leading-5 text-slate-500">Aus Kosten, Eigenkapital, Zins und Laufzeit berechnet.</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <dt className="text-sm font-medium text-slate-600">Laufende Kosten / Monat</dt>
+            <dt className="text-sm font-medium text-slate-600">Betriebskosten / Monat</dt>
             <dd className="mt-2 text-2xl font-bold text-slate-900">{euro(werte.betriebskosten)}</dd>
             <p className="mt-2 text-xs leading-5 text-slate-500">{werte.betriebskostenUnveraendert ? 'Beispielwerte – bitte prüfen.' : 'Vorläufige Werte aus deiner Planung.'}</p>
           </div>
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-5 shadow-sm">
             <dt className="text-sm font-medium text-sky-900">Zusammen / Monat</dt>
             <dd className="mt-2 text-2xl font-bold text-sky-900">{euro(werte.gesamtMonat)}</dd>
-            <p className="mt-2 text-xs leading-5 text-sky-800">Kreditrate + laufende Kosten. Weitere Ausgaben sind möglich.</p>
+            <p className="mt-2 text-xs leading-5 text-sky-800">Kreditrate + Betriebskosten. Weitere Ausgaben sind möglich.</p>
           </div>
         </dl>
       </section>
@@ -62,7 +62,7 @@ export function Ueberblick({ house, onNavigate }: { house: House; onNavigate: (t
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-900">Wie entstehen diese Zahlen?</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Die Baukosten setzen sich aus Hauspreis, Reserve und separat bezahlten Leistungen zusammen. Für die monatliche Summe rechnen wir Kreditrate und laufende Kosten zusammen.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Die Baukosten setzen sich aus Hauspreis, Reserve und separat bezahlten Leistungen zusammen. Für die monatliche Summe rechnen wir Kreditrate und Betriebskosten zusammen.</p>
           <p className="mt-3 text-sm leading-6 text-slate-600">Fehlende Angaben und Beispielwerte machen das Ergebnis unsicher. Du kannst alle Werte jederzeit ändern.</p>
         </div>
       </section>

@@ -11,7 +11,7 @@ const materialPunkte = [
 ];
 
 export function Hausvergleich({ houses }: { houses: House[] }) {
-  if (houses.length < 2) {
+  if (houses.length < 2 && !houses[0]?.aktuelleKosten) {
     return <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">Lege ein zweites Haus an, um die Häuser hier zu vergleichen.</p>;
   }
 
@@ -19,16 +19,20 @@ export function Hausvergleich({ houses }: { houses: House[] }) {
   const kostenPunkte = [
     { label: 'Baukosten', values: kennzahlen.map((werte) => euro(werte.baukosten)) },
     { label: 'Grundstückspreis', values: kennzahlen.map((werte) => euro(werte.grundstueckpreis)) },
+    { label: 'Bankgebühren', values: kennzahlen.map((werte) => euro(werte.bankgebuehren)) },
+    { label: 'Grundbucheintragungen', values: kennzahlen.map((werte) => euro(werte.grundbucheintragungen)) },
     { label: 'Kreditbetrag', values: kennzahlen.map((werte) => euro(werte.kreditbetrag)) },
     { label: 'Kreditrate / Monat', values: kennzahlen.map((werte) => euro(werte.monatsrate)) },
     { label: 'Betriebskosten / Monat', values: kennzahlen.map((werte) => euro(werte.betriebskosten)) },
     { label: 'Gesamt / Monat', values: kennzahlen.map((werte) => euro(werte.gesamtMonat)) },
     { label: 'Gesamt / Jahr', values: kennzahlen.map((werte) => euro(werte.gesamtJahr)) },
+    { label: 'Heute / Monat', values: kennzahlen.map((werte) => werte.aktuelleKosten === null ? 'Noch offen' : euro(werte.aktuelleKosten)) },
+    { label: 'Unterschied / Monat', values: kennzahlen.map((werte) => werte.differenzMonat === null ? 'Noch offen' : `${werte.differenzMonat > 0 ? 'Mehrkosten' : werte.differenzMonat < 0 ? 'Ersparnis' : 'Gleich'}: ${euro(Math.abs(werte.differenzMonat))}`) },
   ];
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold text-slate-900">Häuser vergleichen</h2>
+      <h2 className="text-lg font-semibold text-slate-900">{houses.length > 1 ? 'Häuser vergleichen' : 'Heute und Haus vergleichen'}</h2>
       <p className="text-sm text-slate-600">Kosten und ausgewählte Materialien nebeneinander. Fehlende Angaben erscheinen als „Noch offen“.</p>
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full border-collapse text-left text-sm">

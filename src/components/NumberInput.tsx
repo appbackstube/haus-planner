@@ -21,6 +21,7 @@ export function NumberInput({
     <NumberField.Root
       value={value}
       onValueChange={(newValue: number | null) => onValueChange(newValue ?? 0)}
+      locale="de-AT"
       min={min}
       step={step}
       className="flex flex-col gap-1"

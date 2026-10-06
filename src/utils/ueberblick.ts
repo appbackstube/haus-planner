@@ -17,7 +17,7 @@ export const beispielBetriebskosten: Betriebskosten = {
 export function ueberblickWerte(house: House) {
   const werte = hausKennzahlen(house);
   const hatKostenbasis = werte.baukosten > 0 || werte.grundstueckpreis > 0;
-  const betriebskostenUnveraendert = Object.entries(beispielBetriebskosten).every(
+  const betriebskostenUnveraendert = (house.betriebskosten.eigenePosten?.length ?? 0) === 0 && Object.entries(beispielBetriebskosten).every(
     ([name, betrag]) => house.betriebskosten[name as keyof Betriebskosten] === betrag,
   );
 
@@ -30,7 +30,7 @@ export function ueberblickWerte(house: House) {
     naechsterSchritt: baupostenFuerHaus(house).hauspreis <= 0
       ? { tab: 'baukosten', titel: 'Hauspreis eintragen', beschreibung: 'Ein grober Wert reicht für den Anfang.' }
       : betriebskostenUnveraendert
-        ? { tab: 'betriebskosten', titel: 'Laufende Kosten prüfen', beschreibung: 'Hier stehen noch die Beispielwerte. Passe sie an dein Haus an.' }
+        ? { tab: 'betriebskosten', titel: 'Betriebskosten prüfen', beschreibung: 'Hier stehen noch die Beispielwerte. Passe sie an dein Haus an.' }
         : null,
   };
 }

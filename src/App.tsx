@@ -3,6 +3,7 @@ import { usePlanner } from './hooks/usePlanner';
 import type { House } from './types';
 import { Finanzierung } from './components/Finanzierung';
 import { Betriebskosten } from './components/Betriebskosten';
+import { AktuelleKosten } from './components/AktuelleKosten';
 import { Gesamt } from './components/Gesamt';
 import { Baukosten } from './components/Baukosten';
 import { NotizenUndLinks } from './components/NotizenUndLinks';
@@ -20,7 +21,8 @@ import type { Hauptbereich, Hausbereich, Kostenbereich } from './utils/navigatio
 const kostenbereiche: { id: Kostenbereich; label: string }[] = [
   { id: 'baukosten', label: 'Baukosten' },
   { id: 'finanzierung', label: 'Finanzierung' },
-  { id: 'betriebskosten', label: 'Laufende Kosten' },
+  { id: 'betriebskosten', label: 'Betriebskosten im Haus' },
+  { id: 'aktuelle-kosten', label: 'Heutige Kosten' },
   { id: 'gesamt', label: 'Monatsübersicht' },
 ];
 
@@ -36,6 +38,8 @@ function createHouse(name: string): House {
     finanzierung: {
       grundstueckpreis: 0,
       baukosten: 0,
+      bankgebuehren: 0,
+      grundbucheintragungen: 0,
       eigenkapital: 0,
       zins: 3.5,
       laufzeit: 30,
@@ -46,6 +50,7 @@ function createHouse(name: string): House {
     inkludierteLeistungen: {},
     ausgeschlosseneLeistungen: {},
     leistungsstatus: {},
+    nichtBenoetigtGruende: {},
     ausfuehrung: {},
     externeFirmen: {},
     leistungspreise: {},
@@ -221,6 +226,7 @@ export default function App() {
             {costSection === 'baukosten' && <Baukosten key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
             {costSection === 'finanzierung' && <Finanzierung data={activeHouse.finanzierung} baukosten={baukosten} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
             {costSection === 'betriebskosten' && <Betriebskosten data={activeHouse.betriebskosten} onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })} />}
+            {costSection === 'aktuelle-kosten' && <AktuelleKosten data={activeHouse.aktuelleKosten} onChange={(aktuelleKosten) => updateHouse({ ...activeHouse, aktuelleKosten })} />}
             {costSection === 'gesamt' && <Gesamt house={activeHouse} />}
           </section>}
           {activeSection === 'haus' && <section aria-label={hausbereiche.find(({ id }) => id === houseSection)?.label}>
@@ -244,7 +250,7 @@ export default function App() {
           <div className="grid gap-6 px-6 py-8 sm:grid-cols-3 sm:px-10">
             <div><span className="text-sm font-bold text-sky-700">01 · Haus</span><h3 className="mt-1 font-semibold text-slate-900">Grob planen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Trage einen ersten Preis ein. Du kannst ihn später ändern.</p></div>
             <div><span className="text-sm font-bold text-sky-700">02 · Geld</span><h3 className="mt-1 font-semibold text-slate-900">Monatliche Rate sehen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Ergänze Grundstück, Eigenkapital und Kreditdaten.</p></div>
-            <div><span className="text-sm font-bold text-sky-700">03 · Alltag</span><h3 className="mt-1 font-semibold text-slate-900">Laufende Kosten prüfen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Passe die Beispielwerte an deine Situation an.</p></div>
+            <div><span className="text-sm font-bold text-sky-700">03 · Alltag</span><h3 className="mt-1 font-semibold text-slate-900">Betriebskosten prüfen</h3><p className="mt-1 text-sm leading-6 text-slate-600">Passe die Beispielwerte an deine Situation an.</p></div>
           </div>
         </section>
       )}

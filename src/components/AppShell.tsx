@@ -123,6 +123,9 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
             </Menu.Root>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span role="status" className="flex h-9 w-20 shrink-0 items-center justify-end text-xs text-slate-600 sm:w-40">
+              {saving && <><span className="sm:hidden">Speichere …</span><span className="hidden sm:inline">{status}</span></>}
+            </span>
             {activeHouseId && <button type="button" aria-expanded={shareOpen} aria-controls="teilen-bereich" onClick={onShare} className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-sky-300 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-sky-600">Teilen</button>}
             <Menu.Root>
               <Menu.Trigger disabled={!canAddHouse} aria-label="Weitere Optionen" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-sky-600 disabled:opacity-50">
@@ -155,7 +158,7 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
 
         <main id="hauptinhalt" tabIndex={-1} className="min-w-0 flex-1 px-4 pb-28 pt-6 outline-none sm:px-8 md:pb-12 lg:px-10 lg:pt-8">
           <div className="mx-auto max-w-6xl">
-            {!loading && status && <p role={saving ? 'status' : 'alert'} className={`mb-5 rounded-lg border p-3 text-sm ${saving ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>{status}</p>}
+            {!loading && status && !saving && <p role="alert" className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{status}</p>}
             {loading ? (
               <div role="status" aria-label="Planung wird geladen">
                 <p className="mb-5 text-sm text-slate-600">Planung wird geladen …</p>

@@ -27,14 +27,26 @@ export function Finanzierung({ data, baukosten, onChange }: FinanzierungProps) {
           <span className="text-xs text-slate-500">Unter „Kosten → Baukosten“ bearbeiten</span>
         </div>
         <NumberInput label="Eigenkapital" value={data.eigenkapital} onValueChange={update('eigenkapital')} />
-        <NumberInput label="Zinssatz" value={data.zins} onValueChange={update('zins')} unit="%" step={0.1} min={0} />
+        <NumberInput label="Zinssatz" value={data.zins} onValueChange={update('zins')} unit="%" step={0.01} min={0} />
         <NumberInput label="Laufzeit" value={data.laufzeit} onValueChange={update('laufzeit')} unit="Jahre" step={1} min={1} />
         <NumberInput label="Sondertilgung" value={data.sondertilgung} onValueChange={update('sondertilgung')} unit="%/Jahr" step={1} min={0} />
       </div>
 
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="text-sm font-semibold text-slate-900">Einmalige Nebenkosten</h3>
+        <p className="mt-1 text-sm text-slate-600">Diese Beträge zählen zu den Gesamtkosten und zum Kreditbedarf. Erfasse sie nicht zusätzlich unter „Baukosten“.</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <NumberInput label="Bankgebühren" value={data.bankgebuehren ?? 0} onValueChange={update('bankgebuehren')} />
+          <NumberInput label="Grundbucheintragungen" value={data.grundbucheintragungen ?? 0} onValueChange={update('grundbucheintragungen')} />
+        </div>
+      </section>
+
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <h3 className="text-sm font-semibold text-slate-900">Berechnung</h3>
         <div className="mt-2 space-y-1 text-sm text-slate-700">
+          <p>Haus und Grundstück: <strong>{(baukosten + data.grundstueckpreis).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
+          <p>Bankgebühren: <strong>{(data.bankgebuehren ?? 0).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
+          <p>Grundbucheintragungen: <strong>{(data.grundbucheintragungen ?? 0).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
           <p>Gesamtkosten: <strong>{gesamtkosten.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
           <p>Kreditbedarf: <strong>{kreditbetrag.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
           <p>Monatsrate: <strong>{monatsrate.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>

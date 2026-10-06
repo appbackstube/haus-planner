@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { berechneBaukosten } from '../src/utils/bauposten.ts';
-import { berechneFinanzierung } from '../src/utils/finanzierung.ts';
+import { berechneBaukosten, leistungspreis } from '../src/utils/bauposten.ts';
+import { berechneFinanzierung, summeBetriebskosten } from '../src/utils/finanzierung.ts';
 import { parseHouseBackup } from '../src/utils/houseBackup.ts';
 import { passtLeistungsFilter } from '../src/utils/leistungsFilter.ts';
 import { hatOffeneAngaben } from '../src/utils/materialien.ts';
-import { hausKennzahlen, materialKurzinfo } from '../src/utils/vergleich.ts';
+import { hausKennzahlen, materialKurzinfo, summeAktuelleKosten } from '../src/utils/vergleich.ts';
 import { readStoredValue, writeStoredValue } from '../src/utils/localStorage.ts';
 import { canInitializeDocument, createIdentity, identityFromPath, plannerLink, resolveIdentity, encryptHouses, decryptHouses, writeToken } from '../src/utils/plannerStorage.ts';
 import { beispielBetriebskosten, ueberblickWerte } from '../src/utils/ueberblick.ts';
@@ -27,6 +27,14 @@ test('Baukosten rechnen nur separate Preise einmalig ein', () => {
   assert.equal(berechneBaukosten({ ...house(), leistungsstatus: { fenster: 'ungeklaert' } }).baukosten, 210000);
 });
 
+test('Geleertes Preisfeld zählt als null, auch wenn ein alter Bauposten einen Preis hatte', () => {
+  const mitAltpreis = { ...house(), bauposten: { ...house().bauposten, planung: 3000 }, leistungsstatus: { ...house().leistungsstatus, planung: 'separat' } };
+  assert.equal(leistungspreis(mitAltpreis, 'planung'), 3000);
+  const geleert = { ...mitAltpreis, leistungspreise: { ...mitAltpreis.leistungspreise, planung: 0 } };
+  assert.equal(leistungspreis(geleert, 'planung'), 0);
+  assert.equal(berechneBaukosten(geleert).baukosten, berechneBaukosten(mitAltpreis).baukosten - 3000);
+});
+
 test('Kredit und Vergleich rechnen mit Baukosten und Betriebskosten', () => {
   const werte = hausKennzahlen(house());
   assert.equal(werte.kreditbetrag, 200000);
@@ -34,14 +42,148 @@ test('Kredit und Vergleich rechnen mit Baukosten und Betriebskosten', () => {
   assert.equal(werte.gesamtMonat, 200000 / 240 + 100);
   assert.equal(werte.gesamtJahr, werte.gesamtMonat * 12);
   assert.equal(berechneFinanzierung(house().finanzierung, 215000).gesamtkosten, 265000);
+  assert.equal(werte.aktuelleKosten, null);
+  assert.equal(werte.differenzMonat, null);
+});
+
+test('Bankgebühren und Grundbucheintragungen erhöhen den Finanzierungsbedarf nur einmal', async () => {
+  const finanzierung = { ...house().finanzierung, bankgebuehren: 1200, grundbucheintragungen: 900 };
+  const mitGebuehren = { ...house(), finanzierung };
+  const berechnung = berechneFinanzierung(finanzierung, 215000);
+  assert.equal(berechnung.gesamtkosten, 267100);
+  assert.equal(berechnung.kreditbetrag, 202100);
+  assert.equal(berechnung.monatsrate, 202100 / 240);
+  const werte = hausKennzahlen(mitGebuehren);
+  assert.equal(werte.bankgebuehren, 1200);
+  assert.equal(werte.grundbucheintragungen, 900);
+  assert.equal(werte.kreditbetrag, berechnung.kreditbetrag);
+  assert.equal(werte.gesamtMonat, berechnung.monatsrate + 100);
+  assert.equal(berechneFinanzierung({ ...finanzierung, eigenkapital: 300000 }, 215000).kreditbetrag, 0);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitGebuehren])), [mitGebuehren]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitGebuehren], identity), identity), [mitGebuehren]);
+  for (const ungueltig of [
+    { bankgebuehren: '1200' },
+    { bankgebuehren: -1 },
+    { grundbucheintragungen: null },
+    { erfundeneGebuehr: 500 },
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitGebuehren, finanzierung: { ...finanzierung, ...ungueltig } }])), /keine gültige Liste/);
+  }
+  assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
+});
+
+test('Ein Zinssatz mit zwei Nachkommastellen wirkt sich auf die Monatsrate aus', () => {
+  const finanzierung = { ...house().finanzierung, zins: 3.65 };
+  const { monatsrate, kreditbetrag } = berechneFinanzierung(finanzierung, 215000);
+  const monatszins = 3.65 / 100 / 12;
+  assert.ok(Math.abs(monatsrate - kreditbetrag * monatszins / (1 - (1 + monatszins) ** -(finanzierung.laufzeit * 12))) < 0.001);
+  assert.notEqual(monatsrate, berechneFinanzierung({ ...finanzierung, zins: 3.6 }, 215000).monatsrate);
+});
+
+test('Heutige Wohnkosten werden mit geplanten Monatskosten verglichen und gesichert', async () => {
+  const aktuelleKosten = {
+    wohnen: 850, heizung: 90, strom: 60, wasser: 20, abwasser: 15,
+    muell: 15, versicherung: 20, grundsteuer: 0, internet: 30,
+    instandhaltung: 0, sonstiges: 100,
+  };
+  const mitHeute = { ...house(), aktuelleKosten };
+  const werte = hausKennzahlen(mitHeute);
+  assert.equal(werte.aktuelleKosten, 1200);
+  assert.equal(werte.differenzMonat, werte.gesamtMonat - 1200);
+  assert.ok(werte.differenzMonat < 0);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitHeute])), [mitHeute]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitHeute], identity), identity), [mitHeute]);
+  assert.equal(hausKennzahlen({ ...house(), aktuelleKosten: { ...aktuelleKosten, wohnen: 0 } }).differenzMonat, werte.differenzMonat + 850);
+  const ohneBaupreis = { ...mitHeute, bauposten: { ...mitHeute.bauposten, hauspreis: 0, reserve: 0 }, finanzierung: { ...mitHeute.finanzierung, grundstueckpreis: 0 }, leistungsstatus: {} };
+  assert.equal(hausKennzahlen(ohneBaupreis).differenzMonat, null);
+  assert.throws(() => parseHouseBackup(JSON.stringify([{ ...house(), aktuelleKosten: { ...aktuelleKosten, wohnen: '850' } }])), /keine gültige Liste/);
+  assert.throws(() => parseHouseBackup(JSON.stringify([{ ...house(), aktuelleKosten: { ...aktuelleKosten, erfunden: 5 } }])), /keine gültige Liste/);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
+});
+
+test('Eigene heutige Kostenposten fließen einmalig in Vergleich und Sicherung ein', async () => {
+  const aktuelleKosten = {
+    wohnen: 850, heizung: 90, strom: 60, wasser: 20, abwasser: 15,
+    muell: 15, versicherung: 20, grundsteuer: 0, internet: 30,
+    instandhaltung: 0, sonstiges: 100,
+    eigenePosten: [
+      { id: 'parkplatz', name: 'Parkplatz', betrag: 65 },
+      { id: 'stellplatz', name: 'Stellplatz', betrag: 12.5 },
+    ],
+  };
+  const mitPosten = { ...house(), aktuelleKosten };
+  assert.equal(summeAktuelleKosten(aktuelleKosten), 1277.5);
+  assert.equal(hausKennzahlen(mitPosten).aktuelleKosten, 1277.5);
+  assert.equal(hausKennzahlen(mitPosten).differenzMonat, hausKennzahlen(house()).gesamtMonat - 1277.5);
+  assert.equal(summeAktuelleKosten({ ...aktuelleKosten, eigenePosten: aktuelleKosten.eigenePosten.slice(1) }), 1212.5);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitPosten])), [mitPosten]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitPosten], identity), identity), [mitPosten]);
+  for (const eigenePosten of [
+    [{ id: 'a', name: '', betrag: 10 }],
+    [{ id: 'a', name: 'Test', betrag: '10' }],
+    [{ id: 'a', name: 'Test', betrag: -1 }],
+    [{ id: 'a', name: 'Test', betrag: 10 }, { id: 'a', name: 'Noch ein Test', betrag: 20 }],
+    [{ id: 'a', name: 'Test', betrag: 10, extra: true }],
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitPosten, aktuelleKosten: { ...aktuelleKosten, eigenePosten } }])), /keine gültige Liste/);
+  }
+});
+
+test('Eigene Haus-Betriebskosten zählen zum Monatsvergleich und bleiben im Backup erhalten', async () => {
+  const betriebskosten = {
+    ...house().betriebskosten,
+    eigenePosten: [
+      { id: 'wartung', name: 'Wartung', betrag: 29.5 },
+      { id: 'pflege', name: 'Gartenpflege', betrag: 40 },
+    ],
+  };
+  const mitPosten = { ...house(), betriebskosten };
+  assert.equal(summeBetriebskosten(betriebskosten), 169.5);
+  assert.equal(hausKennzahlen(mitPosten).betriebskosten, 169.5);
+  assert.equal(hausKennzahlen(mitPosten).gesamtMonat, hausKennzahlen(house()).gesamtMonat + 69.5);
+  assert.equal(summeBetriebskosten({ ...betriebskosten, eigenePosten: betriebskosten.eigenePosten.slice(1) }), 140);
+  const mitHeute = { ...mitPosten, aktuelleKosten: { ...beispielBetriebskosten, wohnen: 900, sonstiges: 0 } };
+  assert.equal(hausKennzahlen(mitHeute).differenzMonat, hausKennzahlen(mitHeute).gesamtMonat - summeAktuelleKosten(mitHeute.aktuelleKosten));
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitPosten])), [mitPosten]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitPosten], identity), identity), [mitPosten]);
+  for (const eigenePosten of [
+    [{ id: 'a', name: '', betrag: 10 }],
+    [{ id: 'a', name: 'Wartung', betrag: '10' }],
+    [{ id: 'a', name: 'Wartung', betrag: -1 }],
+    [{ id: 'a', name: 'Wartung', betrag: 10 }, { id: 'a', name: 'Wartung', betrag: 20 }],
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitPosten, betriebskosten: { ...betriebskosten, eigenePosten } }])), /keine gültige Liste/);
+  }
+  assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
 });
 
 test('Leistungsfilter berücksichtigt Status und fehlenden Preis', () => {
-  assert.equal(passtLeistungsFilter(house(), 'fenster', 'alle'), true);
-  assert.equal(passtLeistungsFilter(house(), 'fenster', 'ohne_preis'), false);
-  assert.equal(passtLeistungsFilter(house(), 'heizung', 'ohne_preis'), true);
-  assert.equal(passtLeistungsFilter(house(), 'fenster', 'ungeklaert'), false);
-  assert.equal(passtLeistungsFilter(house(), 'planung', 'ungeklaert'), true);
+  const fenster = { id: 'fenster', name: 'Fenster und Türen' };
+  const heizung = { id: 'heizung', name: 'Heizung' };
+  const planung = { id: 'planung', name: 'Planung' };
+  const alle = { titel: '', status: 'alle', ausfuehrung: 'alle' };
+  assert.equal(passtLeistungsFilter(house(), fenster, alle), true);
+  assert.equal(passtLeistungsFilter(house(), fenster, { ...alle, status: 'ohne_preis' }), false);
+  assert.equal(passtLeistungsFilter(house(), heizung, { ...alle, status: 'ohne_preis' }), true);
+  assert.equal(passtLeistungsFilter(house(), fenster, { ...alle, status: 'ungeklaert' }), false);
+  assert.equal(passtLeistungsFilter(house(), planung, { ...alle, status: 'ungeklaert' }), true);
+  assert.equal(passtLeistungsFilter(house(), fenster, { ...alle, status: 'im_hauspreis' }), false);
+  assert.equal(passtLeistungsFilter(house(), fenster, { ...alle, status: 'separat' }), true);
+  assert.equal(passtLeistungsFilter(house(), { id: 'dach', name: 'Dach' }, { ...alle, status: 'im_hauspreis' }), true);
+  const zugeteilt = { ...house(), ausfuehrung: { fenster: 'externer_betrieb', heizung: 'eigenleistung' } };
+  assert.equal(passtLeistungsFilter(zugeteilt, fenster, { titel: ' FENSTER ', status: 'separat', ausfuehrung: 'externer_betrieb' }), true);
+  assert.equal(passtLeistungsFilter(zugeteilt, fenster, { titel: 'Heizung', status: 'separat', ausfuehrung: 'externer_betrieb' }), false);
+  assert.equal(passtLeistungsFilter(zugeteilt, fenster, { titel: 'fenster', status: 'ohne_preis', ausfuehrung: 'externer_betrieb' }), false);
+  assert.equal(passtLeistungsFilter(zugeteilt, heizung, { ...alle, ausfuehrung: 'eigenleistung' }), true);
+  assert.equal(passtLeistungsFilter(zugeteilt, planung, { ...alle, ausfuehrung: 'offen' }), true);
+  assert.equal(passtLeistungsFilter(zugeteilt, { id: 'eigen-1', name: 'Eigener Punkt' }, { ...alle, titel: 'EIGENER' }), true);
+  const nichtBenoetigt = { ...zugeteilt, leistungsstatus: { ...zugeteilt.leistungsstatus, fenster: 'nicht_benoetigt' } };
+  assert.equal(passtLeistungsFilter(nichtBenoetigt, fenster, { ...alle, status: 'nicht_benoetigt', ausfuehrung: 'nicht_benoetigt' }), true);
+  assert.equal(passtLeistungsFilter(nichtBenoetigt, fenster, { ...alle, ausfuehrung: 'externer_betrieb' }), false);
 });
 
 test('Materialfilter findet leere und unvollständige Angaben', () => {
@@ -58,6 +200,20 @@ test('JSON-Import akzeptiert alte, neue und gemischte Materialangaben', () => {
   const gemischt = { ...house(), id: 'haus-3', materialien: { fenster: { ...alt.materialien.fenster, angaben: { rahmen: 'Holz' } } } };
   assert.deepEqual(parseHouseBackup(JSON.stringify([alt, neu, gemischt])), [alt, neu, gemischt]);
   assert.equal(materialKurzinfo(alt, 'fenster', ['rahmen']), 'Holz');
+});
+
+test('Grund für nicht benötigte Leistung bleibt erhalten und ändert keine Kosten', async () => {
+  const mitGrund = {
+    ...house(),
+    leistungsstatus: { ...house().leistungsstatus, fenster: 'nicht_benoetigt' },
+    nichtBenoetigtGruende: { fenster: 'Fenster bereits vorhanden' },
+  };
+  assert.equal(berechneBaukosten(mitGrund).baukosten, 210000);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitGrund])), [mitGrund]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitGrund], identity), identity), [mitGrund]);
+  assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitGrund, nichtBenoetigtGruende: { fenster: 42 } }])), /keine gültige Liste/);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
 });
 
 test('Ungültiges Backup wird vor dem Überschreiben zurückgewiesen', () => {
@@ -136,10 +292,15 @@ test('Überblick zeigt bei neuem Haus keine erfundenen Baukosten oder Kreditrate
   assert.equal(angepasst.betriebskostenUnveraendert, false);
   assert.equal(angepasst.naechsterSchritt, null);
   assert.equal(angepasst.gesamtMonat, angepasst.monatsrate + angepasst.betriebskosten);
+
+  const mitEigenemPosten = ueberblickWerte({ ...neu, bauposten: { ...neu.bauposten, hauspreis: 200000 }, betriebskosten: { ...beispielBetriebskosten, eigenePosten: [{ id: 'wartung', name: 'Wartung', betrag: 25 }] } });
+  assert.equal(mitEigenemPosten.betriebskostenUnveraendert, false);
+  assert.equal(mitEigenemPosten.betriebskosten, 25 + Object.values(beispielBetriebskosten).reduce((summe, wert) => summe + wert, 0));
+  assert.equal(mitEigenemPosten.naechsterSchritt, null);
 });
 
 test('Alle bisherigen Detailbereiche bleiben über die neue Navigation erreichbar', () => {
-  for (const bereich of ['baukosten', 'finanzierung', 'betriebskosten', 'gesamt']) {
+  for (const bereich of ['baukosten', 'finanzierung', 'betriebskosten', 'aktuelle-kosten', 'gesamt']) {
     assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'kosten', kostenbereich: bereich });
   }
   for (const bereich of ['materialien', 'notizen-und-links']) {

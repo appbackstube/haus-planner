@@ -7,7 +7,7 @@ export interface FinanzierungBerechnung {
 }
 
 export function berechneFinanzierung(data: Finanzierung, baukosten = data.baukosten): FinanzierungBerechnung {
-  const gesamtkosten = data.grundstueckpreis + baukosten;
+  const gesamtkosten = data.grundstueckpreis + baukosten + (data.bankgebuehren ?? 0) + (data.grundbucheintragungen ?? 0);
   const kreditbetrag = Math.max(0, gesamtkosten - data.eigenkapital);
   const monatszins = data.zins / 100 / 12;
   const monate = data.laufzeit * 12;
@@ -19,5 +19,7 @@ export function berechneFinanzierung(data: Finanzierung, baukosten = data.baukos
 }
 
 export function summeBetriebskosten(data: Betriebskosten): number {
-  return Object.values(data).reduce((sum, val) => sum + val, 0);
+  const { eigenePosten = [], ...fixkosten } = data;
+  return Object.values(fixkosten).reduce((summe, wert) => summe + wert, 0)
+    + eigenePosten.reduce((summe, posten) => summe + posten.betrag, 0);
 }

@@ -180,6 +180,8 @@ const statusNamen: Record<Leistungsstatus, string> = {
   nicht_benoetigt: 'Nicht benötigt',
 };
 
+const leererFilter: LeistungsFilter = { titel: '', status: 'alle', ausfuehrung: 'alle' };
+
 function LeistungsZeile({
   house,
   onChange,
@@ -194,6 +196,7 @@ function LeistungsZeile({
   const benoetigt = status !== 'nicht_benoetigt';
   const ausfuehrender = house.ausfuehrung?.[id] ?? 'offen';
   const preis = leistungspreis(house, id);
+  const [preisEingabe, setPreisEingabe] = useState<string | null>(null);
   const detailsId = `leistung-${id}-details`;
 
   return (
@@ -222,6 +225,9 @@ function LeistungsZeile({
           <span aria-hidden="true">⋯</span>
         </button>
       </div>
+      {status === 'nicht_benoetigt' && house.nichtBenoetigtGruende?.[id]?.trim() && (
+        <p className="break-words whitespace-pre-wrap pb-2 text-sm text-slate-600">Grund: {house.nichtBenoetigtGruende[id]}</p>
+      )}
       {offen && (
       <div id={detailsId} className="mb-3 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
         <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600">
@@ -260,6 +266,23 @@ function LeistungsZeile({
             <option value="externer_betrieb">Externer Betrieb</option>
           </select>
         </label>
+        {status === 'nicht_benoetigt' && (
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 sm:col-span-2 xl:col-span-3">
+            <span>Grund für „Nicht benötigt“</span>
+            <textarea
+              value={house.nichtBenoetigtGruende?.[id] ?? ''}
+              onChange={(event) => onChange({
+                ...house,
+                nichtBenoetigtGruende: { ...house.nichtBenoetigtGruende, [id]: event.target.value },
+              })}
+              rows={2}
+              maxLength={500}
+              aria-label={`${name}: Grund für nicht benötigt`}
+              placeholder="Warum wird diese Leistung nicht benötigt?"
+              className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            />
+          </label>
+        )}
         {benoetigt && ausfuehrender === 'externer_betrieb' && (
           <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600">
             <span>Firma</span>
@@ -282,11 +305,17 @@ function LeistungsZeile({
             type="number"
             min={0}
             step={0.01}
-            value={preis}
-            onChange={(event) => onChange({
-              ...house,
-              leistungspreise: { ...house.leistungspreise, [id]: Math.max(0, Number(event.target.value) || 0) },
-            })}
+            value={preisEingabe ?? (preis === 0 ? '' : preis)}
+            placeholder="0"
+            onChange={(event) => {
+              const eingabe = event.target.value;
+              setPreisEingabe(eingabe);
+              onChange({
+                ...house,
+                leistungspreise: { ...house.leistungspreise, [id]: Math.max(0, Number(eingabe) || 0) },
+              });
+            }}
+            onBlur={() => setPreisEingabe(null)}
             aria-label={`${name}: Preis in Euro`}
             className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
           />
@@ -305,13 +334,14 @@ function LeistungsZeile({
 export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProps) {
   const [neuerPunkt, setNeuerPunkt] = useState('');
   const [offeneLeistung, setOffeneLeistung] = useState<string | null>(null);
-  const [filter, setFilter] = useState<LeistungsFilter>('alle');
+  const [filter, setFilter] = useState<LeistungsFilter>(leererFilter);
   const eigeneLeistungen = house.eigeneLeistungen ?? [];
-  const sichtbareEigeneLeistungen = eigeneLeistungen.filter((leistung) => passtLeistungsFilter(house, leistung.id, filter));
+  const sichtbareEigeneLeistungen = eigeneLeistungen.filter((leistung) => passtLeistungsFilter(house, leistung, filter));
   const sichtbareKategorien = kategorien.map((kategorie) => ({
     ...kategorie,
-    sichtbareLeistungen: kategorie.leistungen.filter((leistung) => passtLeistungsFilter(house, leistung.id, filter)),
-  })).filter((kategorie) => filter === 'alle' || kategorie.sichtbareLeistungen.length > 0);
+    sichtbareLeistungen: kategorie.leistungen.filter((leistung) => passtLeistungsFilter(house, leistung, filter)),
+  })).filter((kategorie) => kategorie.sichtbareLeistungen.length > 0);
+  const filterAktiv = filter.titel.trim() !== '' || filter.status !== 'alle' || filter.ausfuehrung !== 'alle';
   const istGeklaert = (id: string) => leistungsstatus(house, id) !== 'ungeklaert';
   const anzahl = kategorien.reduce((summe, kategorie) => summe + kategorie.leistungen.length, eigeneLeistungen.length);
   const bestaetigt = kategorien.reduce(
@@ -329,19 +359,21 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
     if (!name) return;
     onChange({ ...house, eigeneLeistungen: [...eigeneLeistungen, { id: `eigen-${crypto.randomUUID()}`, name }] });
     setNeuerPunkt('');
-    setFilter('alle');
+    setFilter(leererFilter);
   };
 
   const punktEntfernen = (id: string) => {
     const inkludierteLeistungen = { ...house.inkludierteLeistungen };
     const ausgeschlosseneLeistungen = { ...house.ausgeschlosseneLeistungen };
     const leistungsstatusWerte = { ...house.leistungsstatus };
+    const nichtBenoetigtGruende = { ...house.nichtBenoetigtGruende };
     const ausfuehrung = { ...house.ausfuehrung };
     const externeFirmen = { ...house.externeFirmen };
     const leistungspreise = { ...house.leistungspreise };
     delete inkludierteLeistungen[id];
     delete ausgeschlosseneLeistungen[id];
     delete leistungsstatusWerte[id];
+    delete nichtBenoetigtGruende[id];
     delete ausfuehrung[id];
     delete externeFirmen[id];
     delete leistungspreise[id];
@@ -350,6 +382,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
       inkludierteLeistungen,
       ausgeschlosseneLeistungen,
       leistungsstatus: leistungsstatusWerte,
+      nichtBenoetigtGruende,
       ausfuehrung,
       externeFirmen,
       leistungspreise,
@@ -377,18 +410,51 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
             {ohnePreis} separat zu bezahlende {ohnePreis === 1 ? 'Leistung hat' : 'Leistungen haben'} noch keinen Preis.
           </p>
         )}
-        <label className="mt-3 flex w-fit flex-wrap items-center gap-2 text-sm text-slate-700">
-          Anzeigen
-          <select
-            value={filter}
-            onChange={(event) => { setFilter(event.target.value as LeistungsFilter); setOffeneLeistung(null); }}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="alle">Alle Leistungen</option>
-            <option value="ungeklaert">Ungeklärt</option>
-            <option value="ohne_preis">Separat ohne Preis</option>
-          </select>
-        </label>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="flex flex-col gap-1 text-sm text-slate-700">
+            Titel suchen
+            <input
+              type="search"
+              value={filter.titel}
+              onChange={(event) => { setFilter({ ...filter, titel: event.target.value }); setOffeneLeistung(null); }}
+              placeholder="Leistung suchen"
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-slate-700">
+            Status
+            <select
+              value={filter.status}
+              onChange={(event) => { setFilter({ ...filter, status: event.target.value as LeistungsFilter['status'] }); setOffeneLeistung(null); }}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            >
+              <option value="alle">Alle Status</option>
+              <option value="ungeklaert">Ungeklärt</option>
+              <option value="im_hauspreis">Im Hauspreis</option>
+              <option value="separat">Separat zu bezahlen</option>
+              <option value="nicht_benoetigt">Nicht benötigt</option>
+              <option value="ohne_preis">Separat ohne Preis</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-slate-700">
+            Ausführung durch
+            <select
+              value={filter.ausfuehrung}
+              onChange={(event) => { setFilter({ ...filter, ausfuehrung: event.target.value as LeistungsFilter['ausfuehrung'] }); setOffeneLeistung(null); }}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            >
+              <option value="alle">Alle Ausführenden</option>
+              <option value="offen">Noch offen</option>
+              <option value="hausanbieter">Hausanbieter</option>
+              <option value="eigenleistung">Eigenleistung</option>
+              <option value="externer_betrieb">Externer Betrieb</option>
+              <option value="nicht_benoetigt">Nicht benötigt</option>
+            </select>
+          </label>
+        </div>
+        {filterAktiv && (
+          <button type="button" onClick={() => { setFilter(leererFilter); setOffeneLeistung(null); }} className="mt-2 text-sm text-sky-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-sky-600">Filter zurücksetzen</button>
+        )}
         <details className="mt-2 text-sm text-slate-600">
           <summary className="w-fit cursor-pointer text-sky-700">Wie werden Preise berechnet?</summary>
           <p className="mt-1 max-w-3xl">
@@ -397,7 +463,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
           </p>
         </details>
       </div>
-      {filter !== 'alle' && sichtbareKategorien.length === 0 && sichtbareEigeneLeistungen.length === 0 && (
+      {sichtbareKategorien.length === 0 && sichtbareEigeneLeistungen.length === 0 && (
         <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">Keine passenden Leistungen gefunden.</p>
       )}
       <div className="space-y-2">
@@ -428,7 +494,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
       <section aria-labelledby="eigene-leistungen-titel" className="rounded-lg border border-slate-200 bg-slate-50">
         <div className="flex items-center gap-3 px-4 py-3">
           <h4 id="eigene-leistungen-titel" className="flex-1 text-sm font-semibold text-slate-900">Eigene Punkte</h4>
-          <span className="text-xs text-slate-500">{filter === 'alle' ? eigeneLeistungen.length : sichtbareEigeneLeistungen.length} Punkte</span>
+        <span className="text-xs text-slate-500">{filterAktiv ? sichtbareEigeneLeistungen.length : eigeneLeistungen.length} Punkte</span>
         </div>
         <div className="px-4 pb-4">
         <p className="text-sm text-slate-600">Ergänze Leistungen, die für dein Haus oder dein Angebot wichtig sind.</p>

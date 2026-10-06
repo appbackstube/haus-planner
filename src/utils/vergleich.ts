@@ -1,20 +1,30 @@
-import type { House } from '../types';
+import type { AktuelleKosten, House } from '../types';
 import { berechneBaukosten } from './bauposten.ts';
 import { berechneFinanzierung, summeBetriebskosten } from './finanzierung.ts';
+
+export function summeAktuelleKosten(data: AktuelleKosten): number {
+  return summeBetriebskosten(data);
+}
 
 export function hausKennzahlen(house: House) {
   const baukosten = berechneBaukosten(house).baukosten;
   const { kreditbetrag, monatsrate } = berechneFinanzierung(house.finanzierung, baukosten);
   const betriebskosten = summeBetriebskosten(house.betriebskosten);
+  const aktuelleKosten = house.aktuelleKosten ? summeAktuelleKosten(house.aktuelleKosten) : null;
+  const gesamtMonat = monatsrate + betriebskosten;
 
   return {
     baukosten,
     grundstueckpreis: house.finanzierung.grundstueckpreis,
+    bankgebuehren: house.finanzierung.bankgebuehren ?? 0,
+    grundbucheintragungen: house.finanzierung.grundbucheintragungen ?? 0,
     kreditbetrag,
     monatsrate,
     betriebskosten,
-    gesamtMonat: monatsrate + betriebskosten,
-    gesamtJahr: (monatsrate + betriebskosten) * 12,
+    aktuelleKosten,
+    differenzMonat: aktuelleKosten === null || baukosten + house.finanzierung.grundstueckpreis <= 0 ? null : gesamtMonat - aktuelleKosten,
+    gesamtMonat,
+    gesamtJahr: gesamtMonat * 12,
   };
 }
 

@@ -33,7 +33,7 @@ export function Baukosten({ house, onChange }: BaukostenProps) {
       </div>
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold text-slate-900">Gesamtkosten</h3>
+          <h3 className="font-semibold text-slate-900">Haus + Grundstück</h3>
           <strong className="text-lg text-sky-700">{euro(baukosten + house.finanzierung.grundstueckpreis)} €</strong>
         </div>
         <details className="mt-2">
@@ -45,7 +45,7 @@ export function Baukosten({ house, onChange }: BaukostenProps) {
             <div><dt className="text-slate-500">Baukosten</dt><dd className="font-semibold text-slate-900">{euro(baukosten)} €</dd></div>
             <div><dt className="text-slate-500">Grundstück</dt><dd className="font-semibold text-slate-900">{euro(house.finanzierung.grundstueckpreis)} €</dd></div>
           </dl>
-          <p className="mt-3 text-slate-500">Haus und Bau fließen in die Finanzierung ein. Sammelpunkte und Details nicht doppelt bepreisen.</p>
+          <p className="mt-3 text-slate-500">Bankgebühren und Grundbucheintragungen erfasst du unter „Finanzierung“. Sammelpunkte und Details nicht doppelt bepreisen.</p>
         </details>
       </div>
       <LeistungsCheckliste house={house} onChange={onChange} />

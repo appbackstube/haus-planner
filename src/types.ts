@@ -3,10 +3,12 @@ export interface House {
   name: string;
   finanzierung: Finanzierung;
   betriebskosten: Betriebskosten;
+  aktuelleKosten?: AktuelleKosten;
   bauposten?: Bauposten;
   inkludierteLeistungen?: Record<string, boolean>;
   ausgeschlosseneLeistungen?: Record<string, boolean>;
   leistungsstatus?: Record<string, Leistungsstatus>;
+  nichtBenoetigtGruende?: Record<string, string>;
   ausfuehrung?: Record<string, Ausfuehrender>;
   externeFirmen?: Record<string, string>;
   leistungspreise?: Record<string, number>;
@@ -52,6 +54,8 @@ export interface Bauposten {
 export interface Finanzierung {
   grundstueckpreis: number;
   baukosten: number;
+  bankgebuehren?: number;
+  grundbucheintragungen?: number;
   eigenkapital: number;
   zins: number;
   laufzeit: number;
@@ -68,4 +72,16 @@ export interface Betriebskosten {
   grundsteuer: number;
   internet: number;
   instandhaltung: number;
+  eigenePosten?: Kostenposten[];
+}
+
+export interface AktuelleKosten extends Betriebskosten {
+  wohnen: number;
+  sonstiges: number;
+}
+
+export interface Kostenposten {
+  id: string;
+  name: string;
+  betrag: number;
 }
