@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { berechneBaukosten, leistungspreis } from '../src/utils/bauposten.ts';
 import { berechneFinanzierung, summeBetriebskosten } from '../src/utils/finanzierung.ts';
-import { parseHouseBackup } from '../src/utils/houseBackup.ts';
+import { parseHouseBackup, parsePlannerBackup } from '../src/utils/houseBackup.ts';
 import { passtLeistungsFilter } from '../src/utils/leistungsFilter.ts';
 import { hatOffeneAngaben } from '../src/utils/materialien.ts';
 import { hausKennzahlen, materialKurzinfo, summeAktuelleKosten } from '../src/utils/vergleich.ts';
 import { readStoredValue, writeStoredValue } from '../src/utils/localStorage.ts';
-import { canInitializeDocument, createIdentity, identityFromPath, plannerLink, resolveIdentity, encryptHouses, decryptHouses, writeToken } from '../src/utils/plannerStorage.ts';
+import { canInitializeDocument, createIdentity, identityFromPath, plannerLink, resolveIdentity, encryptHouses, decryptHouses, encryptPlannerData, decryptPlannerData, writeToken } from '../src/utils/plannerStorage.ts';
 import { beispielBetriebskosten, ueberblickWerte } from '../src/utils/ueberblick.ts';
 import { zielFuerBereich } from '../src/utils/navigation.ts';
 
@@ -303,9 +303,79 @@ test('Alle bisherigen Detailbereiche bleiben über die neue Navigation erreichba
   for (const bereich of ['baukosten', 'finanzierung', 'betriebskosten', 'aktuelle-kosten', 'gesamt']) {
     assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'kosten', kostenbereich: bereich });
   }
-  for (const bereich of ['materialien', 'notizen-und-links']) {
-    assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'haus', hausbereich: bereich });
+  assert.deepEqual(zielFuerBereich('materialien'), { hauptbereich: 'haus' });
+  for (const bereich of ['notizen-und-links', 'todos']) {
+    assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'organisation', organisationsbereich: bereich });
   }
   assert.deepEqual(zielFuerBereich('vergleich'), { hauptbereich: 'vergleich' });
   assert.deepEqual(zielFuerBereich('ueberblick'), { hauptbereich: 'ueberblick' });
+});
+
+test('Todos bleiben beim Export und in verschlüsselten Planungen erhalten', async () => {
+  const mitTodos = { ...house(), todos: [
+    { id: 'todo-1', titel: 'Gemeinde fragen', beschreibung: 'Anschlusskosten klären', erledigt: false },
+    { id: 'todo-2', titel: 'Angebot prüfen', beschreibung: '', erledigt: true },
+  ] };
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitTodos])), [mitTodos]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitTodos], identity), identity), [mitTodos]);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
+});
+
+test('Gemeinsame Todos bleiben ohne Haus und beim Verschlüsseln erhalten', async () => {
+  const planner = { houses: [], todos: [{ id: 'todo-1', titel: 'Gemeinde fragen', beschreibung: 'Anschlusskosten klären', erledigt: false }] };
+  assert.deepEqual(parsePlannerBackup(JSON.stringify(planner)), planner);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptPlannerData(await encryptPlannerData(planner, identity), identity), planner);
+  assert.deepEqual(parsePlannerBackup(JSON.stringify([house()])), { houses: [house()], todos: [] });
+});
+
+test('Bestehende Todos aller Häuser werden ohne Verlust zusammengeführt', async () => {
+  const erstes = { ...house(), todos: [{ id: 'todo-1', titel: 'Gemeinde fragen', beschreibung: '', erledigt: false }] };
+  const zweites = { ...house(), id: 'haus-2', todos: [{ id: 'todo-1', titel: 'Angebot prüfen', beschreibung: 'Anrufen', erledigt: true }] };
+  const identity = createIdentity();
+  const migrated = await decryptPlannerData(await encryptHouses([erstes, zweites], identity), identity);
+  assert.deepEqual(migrated.houses, [{ ...house() }, { ...house(), id: 'haus-2' }]);
+  assert.deepEqual(migrated.todos.map(({ titel, beschreibung, erledigt }) => ({ titel, beschreibung, erledigt })), [
+    { titel: 'Gemeinde fragen', beschreibung: '', erledigt: false },
+    { titel: 'Angebot prüfen', beschreibung: 'Anrufen', erledigt: true },
+  ]);
+  assert.equal(new Set(migrated.todos.map((todo) => todo.id)).size, 2);
+  assert.deepEqual(parsePlannerBackup(JSON.stringify(migrated)), migrated);
+  assert.deepEqual({ ...migrated, houses: migrated.houses.slice(1) }.todos, migrated.todos);
+
+  const withGlobalTodo = parsePlannerBackup(JSON.stringify({ houses: [erstes], todos: [zweites.todos[0]] }));
+  assert.deepEqual(withGlobalTodo.todos.map((todo) => todo.titel), ['Angebot prüfen', 'Gemeinde fragen']);
+  assert.equal(new Set(withGlobalTodo.todos.map((todo) => todo.id)).size, 2);
+});
+
+test('Ungültige globale Todos werden beim Import abgelehnt', () => {
+  const todo = { id: 'todo-1', titel: 'Gemeinde fragen', beschreibung: '', erledigt: false };
+  for (const todos of [
+    [{ ...todo, titel: '  ' }],
+    [{ ...todo, erledigt: 'nein' }],
+    [todo, todo],
+  ]) {
+    assert.throws(() => parsePlannerBackup(JSON.stringify({ houses: [house()], todos })), /keine gültige Planung/);
+  }
+});
+
+test('Markdown-Notizen bleiben beim Import und verschlüsselten Speichern unverändert', async () => {
+  const mitNotiz = { ...house(), notizen: '# Fragen an die Gemeinde\n\n- Wasseranschluss\n- Kanal\n\n[Formular](https://beispiel.at)' };
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitNotiz])), [mitNotiz]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitNotiz], identity), identity), [mitNotiz]);
+});
+
+test('Ungültige Todos werden beim Import abgelehnt', () => {
+  const gültig = { id: 'todo-1', titel: 'Gemeinde fragen', beschreibung: '', erledigt: false };
+  for (const todos of [
+    [{ ...gültig, titel: '   ' }],
+    [{ ...gültig, erledigt: 'nein' }],
+    [{ ...gültig, beschreibung: null }],
+    [{ ...gültig, unerwartet: true }],
+    [gültig, { ...gültig }],
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...house(), todos }])), /keine gültige Liste/);
+  }
 });

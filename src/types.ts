@@ -15,7 +15,20 @@ export interface House {
   eigeneLeistungen?: EigeneLeistung[];
   notizen?: string;
   links?: HouseLink[];
+  todos?: Todo[];
   materialien?: Record<string, MaterialAuswahl>;
+}
+
+export interface PlannerData {
+  houses: House[];
+  todos: Todo[];
+}
+
+export interface Todo {
+  id: string;
+  titel: string;
+  beschreibung: string;
+  erledigt: boolean;
 }
 
 export interface MaterialAuswahl {

@@ -23,10 +23,11 @@ interface AppShellProps {
   navigationEnabled: boolean;
 }
 
-const bereiche: { id: Hauptbereich; label: string }[] = [
+const bereiche: { id: Hauptbereich; label: string; mobileLabel?: string }[] = [
   { id: 'ueberblick', label: 'Überblick' },
   { id: 'kosten', label: 'Kosten' },
   { id: 'haus', label: 'Haus' },
+  { id: 'organisation', label: 'Organisation', mobileLabel: 'Orga' },
   { id: 'vergleich', label: 'Vergleich' },
 ];
 
@@ -35,6 +36,7 @@ function Icon({ bereich }: { bereich: Hauptbereich }) {
     ueberblick: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z" /><path d="M9 21v-8h6v8" /></>,
     kosten: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h3" /></>,
     haus: <><path d="m3 10 9-7 9 7v10H3V10Z" /><path d="M3 10h18M9 21v-8h6v8" /></>,
+    organisation: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m8 9 1.5 1.5L12 8M14 9h3M8 16h9" /></>,
     vergleich: <><rect x="3" y="9" width="7" height="12" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" /></>,
   };
 
@@ -45,9 +47,10 @@ function Icon({ bereich }: { bereich: Hauptbereich }) {
   );
 }
 
-function NavigationItem({ bereich, label, active, enabled, onNavigate, mobile }: {
+function NavigationItem({ bereich, label, mobileLabel, active, enabled, onNavigate, mobile }: {
   bereich: Hauptbereich;
   label: string;
+  mobileLabel?: string;
   active: boolean;
   enabled: boolean;
   onNavigate: (section: Hauptbereich) => void;
@@ -57,12 +60,13 @@ function NavigationItem({ bereich, label, active, enabled, onNavigate, mobile }:
     <button
       type="button"
       disabled={!enabled}
+      aria-label={mobile && mobileLabel ? label : undefined}
       aria-current={active && enabled ? 'page' : undefined}
       onClick={() => onNavigate(bereich)}
       className={`${mobile ? 'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px]' : 'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm'} font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-40 ${active && enabled ? 'bg-sky-50 text-sky-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
     >
       <Icon bereich={bereich} />
-      <span>{label}</span>
+      <span>{mobile ? mobileLabel ?? label : label}</span>
     </button>
   );
 }
@@ -126,7 +130,7 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
             <span role="status" className="flex h-9 w-20 shrink-0 items-center justify-end text-xs text-slate-600 sm:w-40">
               {saving && <><span className="sm:hidden">Speichere …</span><span className="hidden sm:inline">{status}</span></>}
             </span>
-            {activeHouseId && <button type="button" aria-expanded={shareOpen} aria-controls="teilen-bereich" onClick={onShare} className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-sky-300 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-sky-600">Teilen</button>}
+            {canAddHouse && <button type="button" aria-expanded={shareOpen} aria-controls="teilen-bereich" onClick={onShare} className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-sky-300 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-sky-600">Teilen</button>}
             <Menu.Root>
               <Menu.Trigger disabled={!canAddHouse} aria-label="Weitere Optionen" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-sky-600 disabled:opacity-50">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="size-5"><circle cx="12" cy="5" r="1.75" /><circle cx="12" cy="12" r="1.75" /><circle cx="12" cy="19" r="1.75" /></svg>
@@ -151,7 +155,7 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
           <nav aria-label="Hauptbereiche" className="sticky top-16 flex flex-col gap-1 px-3 py-5">
             <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Planung</p>
             {bereiche.map(({ id, label }) => (
-              <NavigationItem key={id} bereich={id} label={label} active={activeSection === id} enabled={navigationEnabled} onNavigate={onNavigate} />
+              <NavigationItem key={id} bereich={id} label={label} active={activeSection === id} enabled={navigationEnabled && (id === 'organisation' || !!activeHouseId)} onNavigate={onNavigate} />
             ))}
           </nav>
         </aside>
@@ -171,9 +175,9 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
         </main>
       </div>
 
-      <nav aria-label="Hauptbereiche" className="fixed bottom-0 z-30 grid w-full grid-cols-4 gap-1 border-t border-slate-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_20px_rgba(15,23,42,0.04)] backdrop-blur-sm md:hidden">
-        {bereiche.map(({ id, label }) => (
-          <NavigationItem key={id} bereich={id} label={label} active={activeSection === id} enabled={navigationEnabled} onNavigate={onNavigate} mobile />
+      <nav aria-label="Hauptbereiche" className="fixed bottom-0 z-30 grid w-full grid-cols-5 gap-1 border-t border-slate-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_20px_rgba(15,23,42,0.04)] backdrop-blur-sm md:hidden">
+        {bereiche.map(({ id, label, mobileLabel }) => (
+          <NavigationItem key={id} bereich={id} label={label} mobileLabel={mobileLabel} active={activeSection === id} enabled={navigationEnabled && (id === 'organisation' || !!activeHouseId)} onNavigate={onNavigate} mobile />
         ))}
       </nav>
     </div>

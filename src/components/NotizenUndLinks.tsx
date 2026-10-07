@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { House } from '../types';
 import { webUrl } from '../utils/links';
 
@@ -6,6 +6,8 @@ interface NotizenUndLinksProps {
   house: House;
   onChange: (house: House) => void;
 }
+
+const MarkdownNotizen = lazy(() => import('./MarkdownNotizen'));
 
 export function NotizenUndLinks({ house, onChange }: NotizenUndLinksProps) {
   const [titel, setTitel] = useState('');
@@ -28,16 +30,13 @@ export function NotizenUndLinks({ house, onChange }: NotizenUndLinksProps) {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <label htmlFor="haus-notizen" className="mb-2 block font-semibold text-slate-900">Notizen</label>
-        <textarea
-          id="haus-notizen"
-          value={house.notizen ?? ''}
-          onChange={(event) => onChange({ ...house, notizen: event.target.value })}
-          rows={8}
-          placeholder="Ideen, Fragen und wichtige Angaben zum Haus"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-        />
-        <p className="mt-1 text-xs text-slate-500">Die Notizen werden für dieses Haus automatisch gespeichert.</p>
+        <h2 id="haus-notizen-titel" className="mb-2 font-semibold text-slate-900">Notizen</h2>
+        <div role="group" aria-labelledby="haus-notizen-titel">
+          <Suspense fallback={<p role="status" className="text-sm text-slate-600">Editor wird geladen …</p>}>
+            <MarkdownNotizen markdown={house.notizen ?? ''} onChange={(notizen) => onChange({ ...house, notizen })} />
+          </Suspense>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">Markdown mit Überschriften, Listen und Links. Der Editor wächst mit dem Text. Änderungen werden automatisch gespeichert.</p>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">

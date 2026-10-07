@@ -7,16 +7,17 @@ import { AktuelleKosten } from './components/AktuelleKosten';
 import { Gesamt } from './components/Gesamt';
 import { Baukosten } from './components/Baukosten';
 import { NotizenUndLinks } from './components/NotizenUndLinks';
+import { Todos } from './components/Todos';
 import { Materialien } from './components/Materialien';
 import { Hausvergleich } from './components/Hausvergleich';
 import { HausTeilen } from './components/HausTeilen';
 import { AppShell } from './components/AppShell';
 import { Ueberblick } from './components/Ueberblick';
 import { berechneBaukosten, leereBauposten } from './utils/bauposten';
-import { parseHouseBackup } from './utils/houseBackup';
+import { parsePlannerBackup } from './utils/houseBackup';
 import { beispielBetriebskosten } from './utils/ueberblick';
 import { zielFuerBereich } from './utils/navigation';
-import type { Hauptbereich, Hausbereich, Kostenbereich } from './utils/navigation';
+import type { Hauptbereich, Organisationsbereich, Kostenbereich } from './utils/navigation';
 
 const kostenbereiche: { id: Kostenbereich; label: string }[] = [
   { id: 'baukosten', label: 'Baukosten' },
@@ -26,8 +27,8 @@ const kostenbereiche: { id: Kostenbereich; label: string }[] = [
   { id: 'gesamt', label: 'Monatsübersicht' },
 ];
 
-const hausbereiche: { id: Hausbereich; label: string }[] = [
-  { id: 'materialien', label: 'Materialien' },
+const organisationsbereiche: { id: Organisationsbereich; label: string }[] = [
+  { id: 'todos', label: 'Todos' },
   { id: 'notizen-und-links', label: 'Notizen & Links' },
 ];
 
@@ -97,11 +98,13 @@ function HouseNameEditor({ house, onRename, onClose }: { house: House; onRename:
 }
 
 export default function App() {
-  const { houses, setHouses, ready, loadError, status, link } = usePlanner();
+  const { planner, setPlanner, ready, loadError, status, link } = usePlanner();
+  const { houses, todos } = planner;
+  const setHouses = (next: House[]) => setPlanner((current) => ({ ...current, houses: next }));
   const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Hauptbereich>('ueberblick');
   const [costSection, setCostSection] = useState<Kostenbereich>('baukosten');
-  const [houseSection, setHouseSection] = useState<Hausbereich>('materialien');
+  const [organisationSection, setOrganisationSection] = useState<Organisationsbereich>('todos');
   const [shareOpen, setShareOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [backupMessage, setBackupMessage] = useState('');
@@ -119,7 +122,7 @@ export default function App() {
   const navigateTo = (bereich: string) => {
     const ziel = zielFuerBereich(bereich);
     if (ziel.kostenbereich) setCostSection(ziel.kostenbereich);
-    if (ziel.hausbereich) setHouseSection(ziel.hausbereich);
+    if (ziel.organisationsbereich) setOrganisationSection(ziel.organisationsbereich);
     setActiveSection(ziel.hauptbereich);
     setShareOpen(false);
   };
@@ -149,7 +152,7 @@ export default function App() {
   };
 
   const exportHouses = () => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(houses, null, 2)], { type: 'application/json' }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(planner, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = 'hausbau-planer.json';
@@ -163,14 +166,14 @@ export default function App() {
     if (!file) return;
 
     try {
-      const imported = parseHouseBackup(await file.text());
-      if (!window.confirm(`Alle vorhandenen Häuser durch ${imported.length} Häuser aus der Datei ersetzen?`)) return;
-      setHouses(imported);
-      setActiveHouseId(imported[0]?.id ?? null);
+      const imported = parsePlannerBackup(await file.text());
+      if (!window.confirm(`Alle vorhandenen Häuser und Todos durch ${imported.houses.length} Häuser und ${imported.todos.length} Todos aus der Datei ersetzen?`)) return;
+      setPlanner(imported);
+      setActiveHouseId(imported.houses[0]?.id ?? null);
       showOverview();
-      setBackupMessage(`${imported.length} Häuser importiert.`);
+      setBackupMessage(`${imported.houses.length} Häuser und ${imported.todos.length} Todos importiert.`);
     } catch {
-      setBackupMessage('Import fehlgeschlagen: Die JSON-Datei ist ungültig. Vorhandene Häuser bleiben erhalten.');
+      setBackupMessage('Import fehlgeschlagen: Die JSON-Datei ist ungültig. Vorhandene Häuser und Todos bleiben erhalten.');
     } finally {
       event.target.value = '';
     }
@@ -194,7 +197,7 @@ export default function App() {
       onDelete={() => { if (activeHouse) removeHouse(activeHouse.id); }}
       activeSection={activeSection}
       onNavigate={(section) => { setActiveSection(section); setShareOpen(false); }}
-      navigationEnabled={ready && !!activeHouse}
+      navigationEnabled={ready}
     >
       {ready && <>
 
@@ -203,22 +206,22 @@ export default function App() {
           <button key={id} type="button" aria-current={costSection === id ? 'page' : undefined} onClick={() => setCostSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${costSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
         ))}
       </nav>}
-      {activeHouse && activeSection === 'haus' && <nav aria-label="Hausbereiche" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
-        {hausbereiche.map(({ id, label }) => (
-          <button key={id} type="button" aria-current={houseSection === id ? 'page' : undefined} onClick={() => setHouseSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${houseSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
+      {activeSection === 'organisation' && <nav aria-label="Organisationsbereiche" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+        {organisationsbereiche.map(({ id, label }) => (
+          <button key={id} type="button" aria-current={organisationSection === id ? 'page' : undefined} onClick={() => setOrganisationSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${organisationSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
         ))}
       </nav>}
 
       <input ref={importInputRef} type="file" accept=".json,application/json" onChange={importHouses} className="hidden" aria-label="JSON-Datei importieren" />
       {backupMessage && <p role="status" className="mb-5 text-sm text-slate-600">{backupMessage}</p>}
+      {shareOpen && <div id="teilen-bereich" className="mb-6">
+        <div className="mb-2 flex justify-end"><button type="button" onClick={() => setShareOpen(false)} className="text-sm text-slate-600 underline-offset-4 hover:text-sky-700 hover:underline focus-visible:outline-2 focus-visible:outline-sky-600">Schließen</button></div>
+        <HausTeilen link={link} />
+      </div>}
 
       {activeHouse ? (
         <>
           {renaming && <HouseNameEditor key={activeHouse.id} house={activeHouse} onRename={(name) => updateHouse({ ...activeHouse, name })} onClose={() => setRenaming(false)} />}
-          {shareOpen && <div id="teilen-bereich" className="mb-6">
-            <div className="mb-2 flex justify-end"><button type="button" onClick={() => setShareOpen(false)} className="text-sm text-slate-600 underline-offset-4 hover:text-sky-700 hover:underline focus-visible:outline-2 focus-visible:outline-sky-600">Schließen</button></div>
-            <HausTeilen link={link} />
-          </div>}
           {activeSection === 'ueberblick' && <section>
             <Ueberblick house={activeHouse} onNavigate={navigateTo} />
           </section>}
@@ -229,15 +232,14 @@ export default function App() {
             {costSection === 'aktuelle-kosten' && <AktuelleKosten data={activeHouse.aktuelleKosten} onChange={(aktuelleKosten) => updateHouse({ ...activeHouse, aktuelleKosten })} />}
             {costSection === 'gesamt' && <Gesamt house={activeHouse} />}
           </section>}
-          {activeSection === 'haus' && <section aria-label={hausbereiche.find(({ id }) => id === houseSection)?.label}>
-            {houseSection === 'materialien' && <Materialien key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
-            {houseSection === 'notizen-und-links' && <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
+          {activeSection === 'haus' && <section aria-label="Materialien">
+            <Materialien key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
           </section>}
           {activeSection === 'vergleich' && <section>
             <Hausvergleich houses={houses} />
           </section>}
         </>
-      ) : (
+      ) : activeSection !== 'organisation' && (
         <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
           <div className="bg-gradient-to-br from-sky-800 to-teal-700 px-6 py-10 text-white sm:px-10 sm:py-14">
             <p className="text-sm font-medium text-sky-100">Dein Weg zum eigenen Haus</p>
@@ -254,6 +256,12 @@ export default function App() {
           </div>
         </section>
       )}
+      {activeSection === 'organisation' && <section aria-label={organisationsbereiche.find(({ id }) => id === organisationSection)?.label}>
+        {organisationSection === 'todos' && <Todos todos={todos} onChange={(next) => setPlanner((current) => ({ ...current, todos: next }))} />}
+        {organisationSection === 'notizen-und-links' && (activeHouse
+          ? <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
+          : <p className="text-sm text-slate-600">Lege zuerst ein Haus an, um Notizen und Links zu speichern.</p>)}
+      </section>}
       </>}
     </AppShell>
   );

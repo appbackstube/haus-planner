@@ -1,4 +1,4 @@
-import type { House } from '../types';
+import type { House, PlannerData, Todo } from '../types';
 import { webUrl } from './links.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -21,6 +21,13 @@ function optionalMap(value: unknown, check: (entry: unknown) => boolean): boolea
 function isHouseLink(value: unknown): boolean {
   return isRecord(value) && hasFields(value, ['id', 'titel', 'url'], isString)
     && typeof value.url === 'string' && webUrl(value.url) !== null;
+}
+
+function isTodo(value: unknown): value is Todo {
+  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
+    && typeof value.titel === 'string' && value.titel.trim().length > 0
+    && typeof value.beschreibung === 'string' && typeof value.erledigt === 'boolean'
+    && Object.keys(value).every((feld) => ['id', 'titel', 'beschreibung', 'erledigt'].includes(feld));
 }
 
 function isMaterialAuswahl(value: unknown): boolean {
@@ -76,6 +83,8 @@ function isHouse(value: unknown): value is House {
     && optionalMap(value.leistungspreise, isNumber)
     && (value.notizen === undefined || isString(value.notizen))
     && (value.links === undefined || (Array.isArray(value.links) && value.links.every(isHouseLink)))
+    && (value.todos === undefined || (Array.isArray(value.todos) && value.todos.every(isTodo)
+      && new Set(value.todos.map((todo) => todo.id)).size === value.todos.length))
     && optionalMap(value.materialien, isMaterialAuswahl)
     && (value.eigeneLeistungen === undefined || (Array.isArray(value.eigeneLeistungen)
       && value.eigeneLeistungen.every((entry: unknown) => hasFields(entry, ['id', 'name'], isString))));
@@ -87,4 +96,30 @@ export function parseHouseBackup(text: string): House[] {
     throw new Error('Die Datei enthält keine gültige Liste von Häusern.');
   }
   return parsed;
+}
+
+export function parsePlannerBackup(text: string): PlannerData {
+  const parsed: unknown = JSON.parse(text);
+  const oldFormat = Array.isArray(parsed);
+  if (!oldFormat && (!isRecord(parsed) || !Array.isArray(parsed.houses) || !Array.isArray(parsed.todos)
+    || !parsed.todos.every(isTodo)
+    || new Set(parsed.todos.map((todo: Todo) => todo.id)).size !== parsed.todos.length
+    || Object.keys(parsed).some((field) => !['houses', 'todos'].includes(field)))) {
+    throw new Error('Die Datei enthält keine gültige Planung.');
+  }
+
+  const houses = parseHouseBackup(JSON.stringify(oldFormat ? parsed : parsed.houses));
+  const todos: Todo[] = oldFormat ? [] : [...(parsed.todos as Todo[])];
+  const ids = new Set(todos.map((todo) => todo.id));
+  const migratedHouses = houses.map((house) => {
+    const { todos: houseTodos, ...rest } = house;
+    for (const todo of houseTodos ?? []) {
+      const id = ids.has(todo.id) ? crypto.randomUUID() : todo.id;
+      ids.add(id);
+      todos.push({ ...todo, id });
+    }
+    return rest;
+  });
+
+  return { houses: migratedHouses, todos };
 }

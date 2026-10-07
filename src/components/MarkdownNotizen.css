@@ -1,0 +1,23 @@
+.notizen-editor.mdxeditor {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background: white;
+}
+
+.notizen-editor .mdxeditor-root-contenteditable,
+.notizen-editor .mdxeditor-source-editor {
+  min-height: 10rem;
+}
+
+.notizen-editor .mdxeditor-source-editor .cm-editor {
+  height: auto;
+}
+
+.notizen-editor .mdxeditor-source-editor .cm-scroller {
+  overflow: visible;
+}
+
+.notizen-editor .notizen-inhalt {
+  min-height: 10rem;
+  line-height: 1.6;
+}

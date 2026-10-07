@@ -1,5 +1,5 @@
-import { parseHouseBackup } from './houseBackup.ts';
-import type { House } from '../types';
+import { parseHouseBackup, parsePlannerBackup } from './houseBackup.ts';
+import type { House, PlannerData } from '../types';
 
 export interface PlannerIdentity { id: string; key: string }
 export interface EncryptedDocument { iv: string; data: string }
@@ -77,20 +77,36 @@ export function clearLegacyHouses(storage: Pick<Storage, 'removeItem'>): void {
   storage.removeItem(legacyKey);
 }
 
-export async function encryptHouses(houses: House[], identity: PlannerIdentity): Promise<EncryptedDocument> {
+async function encryptDocument(value: House[] | PlannerData, identity: PlannerIdentity): Promise<EncryptedDocument> {
   const key = await crypto.subtle.importKey('raw', decode(identity.key) as BufferSource, 'AES-GCM', false, ['encrypt']);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(houses)));
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(value)));
   return { iv: encode(iv), data: encode(new Uint8Array(data)) };
 }
 
-export async function decryptHouses(payload: EncryptedDocument, identity: PlannerIdentity): Promise<House[]> {
+async function decryptDocument(payload: EncryptedDocument, identity: PlannerIdentity): Promise<string> {
   if (!payload || typeof payload.iv !== 'string' || typeof payload.data !== 'string' || decode(payload.iv).length !== 12) {
     throw new Error('Ungültige verschlüsselte Daten.');
   }
   const key = await crypto.subtle.importKey('raw', decode(identity.key) as BufferSource, 'AES-GCM', false, ['decrypt']);
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decode(payload.iv) }, key, decode(payload.data) as BufferSource);
-  return parseHouseBackup(new TextDecoder('utf-8', { fatal: true }).decode(plain));
+  return new TextDecoder('utf-8', { fatal: true }).decode(plain);
+}
+
+export async function encryptHouses(houses: House[], identity: PlannerIdentity): Promise<EncryptedDocument> {
+  return encryptDocument(houses, identity);
+}
+
+export async function decryptHouses(payload: EncryptedDocument, identity: PlannerIdentity): Promise<House[]> {
+  return parseHouseBackup(await decryptDocument(payload, identity));
+}
+
+export async function encryptPlannerData(data: PlannerData, identity: PlannerIdentity): Promise<EncryptedDocument> {
+  return encryptDocument(data, identity);
+}
+
+export async function decryptPlannerData(payload: EncryptedDocument, identity: PlannerIdentity): Promise<PlannerData> {
+  return parsePlannerBackup(await decryptDocument(payload, identity));
 }
 
 export async function writeToken(identity: PlannerIdentity): Promise<string> {
