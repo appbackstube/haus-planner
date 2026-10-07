@@ -45,6 +45,21 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 const betriebskostenFelder = ['heizung', 'strom', 'wasser', 'abwasser', 'muell', 'versicherung', 'grundsteuer', 'internet', 'instandhaltung'];
 const finanzierungsFelder = ['grundstueckpreis', 'baukosten', 'eigenkapital', 'zins', 'laufzeit', 'sondertilgung'];
 const weitereFinanzierungsFelder = ['bankgebuehren', 'grundbucheintragungen'];
+const frageKategorien = ['gemeinde', 'hausanbieter', 'bank', 'strom', 'wasser', 'internet'];
+
+function isFrageAntwort(value: unknown): boolean {
+  return isRecord(value) && typeof value.erledigt === 'boolean' && typeof value.notiz === 'string'
+    && Object.keys(value).every((feld) => ['erledigt', 'notiz'].includes(feld));
+}
+
+function isEigeneFragen(value: unknown): boolean {
+  return Array.isArray(value) && value.every((frage: unknown) => isRecord(frage)
+    && typeof frage.id === 'string' && frage.id.startsWith('eigen-')
+    && typeof frage.text === 'string' && frage.text.trim().length > 0
+    && frageKategorien.includes(String(frage.kategorie))
+    && Object.keys(frage).every((feld) => ['id', 'kategorie', 'text'].includes(feld)))
+    && new Set(value.map((frage: { id: string }) => frage.id)).size === value.length;
+}
 
 function isFinanzierung(value: unknown): boolean {
   return isRecord(value) && hasFields(value, finanzierungsFelder, isNumber)
@@ -76,11 +91,14 @@ function isHouse(value: unknown): value is House {
     && (value.bauposten === undefined || hasFields(value.bauposten, ['hauspreis', 'fundamentplatte', 'erdarbeiten', 'entsorgung', 'hausanschluesse', 'planung', 'aussenanlagen', 'reserve'], isNumber, true))
     && optionalMap(value.inkludierteLeistungen, isBoolean)
     && optionalMap(value.ausgeschlosseneLeistungen, isBoolean)
+    && optionalMap(value.kreditAusgeschlosseneLeistungen, isBoolean)
     && optionalMap(value.leistungsstatus, (entry) => ['ungeklaert', 'im_hauspreis', 'separat', 'nicht_benoetigt'].includes(String(entry)))
     && optionalMap(value.nichtBenoetigtGruende, isString)
     && optionalMap(value.ausfuehrung, (entry) => ['offen', 'hausanbieter', 'eigenleistung', 'externer_betrieb'].includes(String(entry)))
     && optionalMap(value.externeFirmen, isString)
     && optionalMap(value.leistungspreise, isNumber)
+    && optionalMap(value.fragenAntworten, isFrageAntwort)
+    && (value.eigeneFragen === undefined || isEigeneFragen(value.eigeneFragen))
     && (value.notizen === undefined || isString(value.notizen))
     && (value.links === undefined || (Array.isArray(value.links) && value.links.every(isHouseLink)))
     && (value.todos === undefined || (Array.isArray(value.todos) && value.todos.every(isTodo)

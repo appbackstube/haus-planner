@@ -10,6 +10,7 @@ import { readStoredValue, writeStoredValue } from '../src/utils/localStorage.ts'
 import { canInitializeDocument, createIdentity, identityFromPath, plannerLink, resolveIdentity, encryptHouses, decryptHouses, encryptPlannerData, decryptPlannerData, writeToken } from '../src/utils/plannerStorage.ts';
 import { beispielBetriebskosten, ueberblickWerte } from '../src/utils/ueberblick.ts';
 import { zielFuerBereich } from '../src/utils/navigation.ts';
+import { antwortFuerFrage, fragenSektionen } from '../src/utils/fragenkatalog.ts';
 
 function house() {
   return {
@@ -44,6 +45,37 @@ test('Kredit und Vergleich rechnen mit Baukosten und Betriebskosten', () => {
   assert.equal(berechneFinanzierung(house().finanzierung, 215000).gesamtkosten, 265000);
   assert.equal(werte.aktuelleKosten, null);
   assert.equal(werte.differenzMonat, null);
+});
+
+test('Nur markierte separate Leistungen mit Preis werden aus dem Kredit ausgeschlossen', () => {
+  const mitAusschluss = {
+    ...house(),
+    kreditAusgeschlosseneLeistungen: { fenster: true, heizung: true, dach: true, 'eigen-extra': true },
+    eigeneLeistungen: [{ id: 'eigen-extra', name: 'Zusatzleistung' }],
+    leistungsstatus: { ...house().leistungsstatus, 'eigen-extra': 'separat' },
+    leistungspreise: { ...house().leistungspreise, 'eigen-extra': 2000 },
+  };
+  const { baukosten, kreditAusgeschlossen } = berechneBaukosten(mitAusschluss);
+  assert.equal(baukosten, 217000);
+  assert.equal(kreditAusgeschlossen, 7000);
+  const berechnung = berechneFinanzierung(mitAusschluss.finanzierung, baukosten, kreditAusgeschlossen);
+  assert.equal(berechnung.gesamtkosten, 267000);
+  assert.equal(berechnung.ausKreditAusgeschlossen, 7000);
+  assert.equal(berechnung.kreditbetrag, 195000);
+  assert.equal(berechnung.monatsrate, 195000 / 240);
+  assert.equal(hausKennzahlen(mitAusschluss).kreditbetrag, 195000);
+  assert.equal(ueberblickWerte(mitAusschluss).monatsrate, berechnung.monatsrate);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitAusschluss])), [mitAusschluss]);
+  const ohneHaken = { ...mitAusschluss, kreditAusgeschlosseneLeistungen: { ...mitAusschluss.kreditAusgeschlosseneLeistungen, fenster: false } };
+  assert.equal(berechneBaukosten(ohneHaken).kreditAusgeschlossen, 2000);
+  const nichtSeparat = { ...mitAusschluss, leistungsstatus: { ...mitAusschluss.leistungsstatus, fenster: 'im_hauspreis' } };
+  assert.equal(berechneBaukosten(nichtSeparat).kreditAusgeschlossen, 2000);
+  assert.equal(berechneFinanzierung(mitAusschluss.finanzierung, 215000, 999999).ausKreditAusgeschlossen, 215000);
+  assert.equal(berechneFinanzierung(mitAusschluss.finanzierung, 215000, -100).kreditbetrag, 200000);
+  for (const ungueltig of ['true', 1, null]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitAusschluss, kreditAusgeschlosseneLeistungen: { fenster: ungueltig } }])), /keine gültige Liste/);
+  }
+  assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
 });
 
 test('Bankgebühren und Grundbucheintragungen erhöhen den Finanzierungsbedarf nur einmal', async () => {
@@ -304,11 +336,51 @@ test('Alle bisherigen Detailbereiche bleiben über die neue Navigation erreichba
     assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'kosten', kostenbereich: bereich });
   }
   assert.deepEqual(zielFuerBereich('materialien'), { hauptbereich: 'haus' });
-  for (const bereich of ['notizen-und-links', 'todos']) {
-    assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: 'organisation', organisationsbereich: bereich });
+  for (const bereich of ['todos', 'notizen', 'links', 'fragenkatalog']) {
+    assert.deepEqual(zielFuerBereich(bereich), { hauptbereich: bereich });
   }
+  assert.deepEqual(zielFuerBereich('notizen-und-links'), { hauptbereich: 'notizen' });
   assert.deepEqual(zielFuerBereich('vergleich'), { hauptbereich: 'vergleich' });
   assert.deepEqual(zielFuerBereich('ueberblick'), { hauptbereich: 'ueberblick' });
+});
+
+test('Fragenkatalog hat sechs Bereiche und sichert Antworten sowie eigene Fragen je Haus', async () => {
+  assert.deepEqual(fragenSektionen.map((sektion) => sektion.id), ['gemeinde', 'hausanbieter', 'bank', 'strom', 'wasser', 'internet']);
+  assert.ok(fragenSektionen.every((sektion) => sektion.fragen.length > 0));
+  const gemeindeFragen = fragenSektionen.find((sektion) => sektion.id === 'gemeinde').fragen;
+  assert.equal(gemeindeFragen.length, 18);
+  assert.equal(gemeindeFragen.find((frage) => frage.id === 'gemeinde-bebauung')?.text, 'Welche Vorgaben gelten für Größe, Höhe und Lage des Hauses?');
+  assert.equal(gemeindeFragen.find((frage) => frage.id === 'gemeinde-kosten')?.text, 'Welche Aufschließungsabgabe oder sonstigen Beiträge für Straße und Infrastruktur sind noch offen?');
+  assert.equal(gemeindeFragen.filter((frage) => frage.text.includes('Vorgaben gelten')).length, 1);
+  assert.equal(gemeindeFragen.filter((frage) => frage.text.includes('Aufschließungsabgabe')).length, 1);
+  for (const thema of ['Bauland', 'Aufschließungsabgabe', 'Bauantrag', 'Bauwasseranschluss', 'Kanalanschluss', 'Regenwasser', 'Gehsteig', 'Gebührensätze']) {
+    assert.ok(gemeindeFragen.some((frage) => frage.text.includes(thema)), thema);
+  }
+  const alleIds = fragenSektionen.flatMap((sektion) => sektion.fragen.map((frage) => frage.id));
+  assert.equal(new Set(alleIds).size, alleIds.length);
+  const alleFragen = fragenSektionen.flatMap((sektion) => sektion.fragen.map((frage) => frage.text.toLocaleLowerCase('de-AT').trim()));
+  assert.equal(new Set(alleFragen).size, alleFragen.length);
+  assert.deepEqual(antwortFuerFrage({ 'gemeinde-hausvorgaben': { erledigt: true, notiz: 'Alte Antwort' } }, 'gemeinde-bebauung'), { erledigt: true, notiz: 'Alte Antwort' });
+  assert.deepEqual(antwortFuerFrage({
+    'gemeinde-kosten': { erledigt: false, notiz: 'Bereits notiert' },
+    'gemeinde-aufschliessungsabgabe': { erledigt: true, notiz: 'Neue Antwort' },
+  }, 'gemeinde-kosten'), { erledigt: true, notiz: 'Bereits notiert\n\nNeue Antwort' });
+  const mitFragen = {
+    ...house(),
+    fragenAntworten: { 'gemeinde-bebauung': { erledigt: true, notiz: 'Bei der Gemeinde nachfragen' }, 'gemeinde-kosten': { erledigt: true, notiz: 'Beiträge erfragt' }, 'eigen-123': { erledigt: false, notiz: '' } },
+    eigeneFragen: [{ id: 'eigen-123', kategorie: 'wasser', text: 'Wo ist die Anschlussstelle?' }],
+  };
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitFragen, { ...house(), id: 'haus-2' }])), [mitFragen, { ...house(), id: 'haus-2' }]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitFragen], identity), identity), [mitFragen]);
+  for (const invalid of [
+    { fragenAntworten: { 'gemeinde-bebauung': { erledigt: 'ja', notiz: '' } } },
+    { fragenAntworten: { 'gemeinde-bebauung': { erledigt: true, notiz: '', andere: 1 } } },
+    { eigeneFragen: [{ id: 'eigen-1', kategorie: 'falsch', text: 'Frage?' }] },
+    { eigeneFragen: [{ id: 'eigen-1', kategorie: 'wasser', text: '' }] },
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitFragen, ...invalid }])), /keine gültige Liste/);
+  }
 });
 
 test('Todos bleiben beim Export und in verschlüsselten Planungen erhalten', async () => {

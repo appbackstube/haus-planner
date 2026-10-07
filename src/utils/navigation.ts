@@ -1,11 +1,9 @@
-export type Hauptbereich = 'ueberblick' | 'kosten' | 'haus' | 'organisation' | 'vergleich';
+export type Hauptbereich = 'ueberblick' | 'kosten' | 'haus' | 'todos' | 'notizen' | 'links' | 'fragenkatalog' | 'vergleich';
 export type Kostenbereich = 'baukosten' | 'finanzierung' | 'betriebskosten' | 'aktuelle-kosten' | 'gesamt';
-export type Organisationsbereich = 'todos' | 'notizen-und-links';
 
 export function zielFuerBereich(bereich: string): {
   hauptbereich: Hauptbereich;
   kostenbereich?: Kostenbereich;
-  organisationsbereich?: Organisationsbereich;
 } {
   switch (bereich) {
     case 'baukosten':
@@ -17,8 +15,12 @@ export function zielFuerBereich(bereich: string): {
     case 'materialien':
       return { hauptbereich: 'haus' };
     case 'notizen-und-links':
+      return { hauptbereich: 'notizen' };
     case 'todos':
-      return { hauptbereich: 'organisation', organisationsbereich: bereich };
+    case 'notizen':
+    case 'links':
+    case 'fragenkatalog':
+      return { hauptbereich: bereich };
     case 'vergleich':
       return { hauptbereich: 'vergleich' };
     default:

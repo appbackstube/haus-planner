@@ -5,15 +5,16 @@ import { berechneFinanzierung } from '../utils/finanzierung';
 interface FinanzierungProps {
   data: FinanzierungData;
   baukosten: number;
+  kreditAusgeschlossen: number;
   onChange: (data: FinanzierungData) => void;
 }
 
-export function Finanzierung({ data, baukosten, onChange }: FinanzierungProps) {
+export function Finanzierung({ data, baukosten, kreditAusgeschlossen, onChange }: FinanzierungProps) {
   const update = (key: keyof FinanzierungData) => (value: number) => {
     onChange({ ...data, [key]: value });
   };
 
-  const { gesamtkosten, kreditbetrag, monatsrate } = berechneFinanzierung(data, baukosten);
+  const { gesamtkosten, ausKreditAusgeschlossen, kreditbetrag, monatsrate } = berechneFinanzierung(data, baukosten, kreditAusgeschlossen);
 
   return (
     <div className="space-y-4">
@@ -48,6 +49,7 @@ export function Finanzierung({ data, baukosten, onChange }: FinanzierungProps) {
           <p>Bankgebühren: <strong>{(data.bankgebuehren ?? 0).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
           <p>Grundbucheintragungen: <strong>{(data.grundbucheintragungen ?? 0).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
           <p>Gesamtkosten: <strong>{gesamtkosten.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
+          <p>Aus dem Kredit ausgeschlossen: <strong>−{ausKreditAusgeschlossen.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
           <p>Kreditbedarf: <strong>{kreditbetrag.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
           <p>Monatsrate: <strong>{monatsrate.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
         </div>

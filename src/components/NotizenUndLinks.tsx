@@ -5,11 +5,12 @@ import { webUrl } from '../utils/links';
 interface NotizenUndLinksProps {
   house: House;
   onChange: (house: House) => void;
+  bereich: 'notizen' | 'links';
 }
 
 const MarkdownNotizen = lazy(() => import('./MarkdownNotizen'));
 
-export function NotizenUndLinks({ house, onChange }: NotizenUndLinksProps) {
+export function NotizenUndLinks({ house, onChange, bereich }: NotizenUndLinksProps) {
   const [titel, setTitel] = useState('');
   const [adresse, setAdresse] = useState('');
   const [fehler, setFehler] = useState('');
@@ -29,7 +30,7 @@ export function NotizenUndLinks({ house, onChange }: NotizenUndLinksProps) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+      {bereich === 'notizen' && <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 id="haus-notizen-titel" className="mb-2 font-semibold text-slate-900">Notizen</h2>
         <div role="group" aria-labelledby="haus-notizen-titel">
           <Suspense fallback={<p role="status" className="text-sm text-slate-600">Editor wird geladen …</p>}>
@@ -37,9 +38,9 @@ export function NotizenUndLinks({ house, onChange }: NotizenUndLinksProps) {
           </Suspense>
         </div>
         <p className="mt-2 text-xs text-slate-500">Markdown mit Überschriften, Listen und Links. Der Editor wächst mit dem Text. Änderungen werden automatisch gespeichert.</p>
-      </section>
+      </section>}
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+      {bereich === 'links' && <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 font-semibold text-slate-900">Links</h2>
         <form onSubmit={addLink} className="flex flex-wrap items-end gap-2">
           <label className="flex min-w-40 flex-1 flex-col gap-1 text-sm text-slate-700">
@@ -92,7 +93,7 @@ export function NotizenUndLinks({ house, onChange }: NotizenUndLinksProps) {
             })}
           </ul>
         ) : <p className="mt-4 text-sm text-slate-500">Noch keine Links gespeichert.</p>}
-      </section>
+      </section>}
     </div>
   );
 }

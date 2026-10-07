@@ -27,7 +27,10 @@ const bereiche: { id: Hauptbereich; label: string; mobileLabel?: string }[] = [
   { id: 'ueberblick', label: 'Überblick' },
   { id: 'kosten', label: 'Kosten' },
   { id: 'haus', label: 'Haus' },
-  { id: 'organisation', label: 'Organisation', mobileLabel: 'Orga' },
+  { id: 'todos', label: 'Todos' },
+  { id: 'notizen', label: 'Notizen' },
+  { id: 'links', label: 'Links' },
+  { id: 'fragenkatalog', label: 'Fragenkatalog', mobileLabel: 'Fragen' },
   { id: 'vergleich', label: 'Vergleich' },
 ];
 
@@ -36,7 +39,10 @@ function Icon({ bereich }: { bereich: Hauptbereich }) {
     ueberblick: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z" /><path d="M9 21v-8h6v8" /></>,
     kosten: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h3" /></>,
     haus: <><path d="m3 10 9-7 9 7v10H3V10Z" /><path d="M3 10h18M9 21v-8h6v8" /></>,
-    organisation: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m8 9 1.5 1.5L12 8M14 9h3M8 16h9" /></>,
+    todos: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m8 9 1.5 1.5L12 8M14 9h3M8 16h9" /></>,
+    notizen: <><path d="M5 3h11l3 3v15H5z" /><path d="M9 10h6M9 14h6M9 18h4" /></>,
+    links: <><path d="M10 13a5 5 0 0 0 7 .5l2-2a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7-.5l-2 2a5 5 0 0 0 7 7l1-1" /></>,
+    fragenkatalog: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .8-1.5 1.3-1.5 3M12 17h.01" /></>,
     vergleich: <><rect x="3" y="9" width="7" height="12" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" /></>,
   };
 
@@ -63,7 +69,7 @@ function NavigationItem({ bereich, label, mobileLabel, active, enabled, onNaviga
       aria-label={mobile && mobileLabel ? label : undefined}
       aria-current={active && enabled ? 'page' : undefined}
       onClick={() => onNavigate(bereich)}
-      className={`${mobile ? 'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px]' : 'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm'} font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-40 ${active && enabled ? 'bg-sky-50 text-sky-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+      className={`${mobile ? 'flex min-h-14 min-w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px]' : 'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm'} font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-40 ${active && enabled ? 'bg-sky-50 text-sky-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
     >
       <Icon bereich={bereich} />
       <span>{mobile ? mobileLabel ?? label : label}</span>
@@ -155,7 +161,7 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
           <nav aria-label="Hauptbereiche" className="sticky top-16 flex flex-col gap-1 px-3 py-5">
             <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Planung</p>
             {bereiche.map(({ id, label }) => (
-              <NavigationItem key={id} bereich={id} label={label} active={activeSection === id} enabled={navigationEnabled && (id === 'organisation' || !!activeHouseId)} onNavigate={onNavigate} />
+              <NavigationItem key={id} bereich={id} label={label} active={activeSection === id} enabled={navigationEnabled && (['todos', 'notizen', 'links', 'fragenkatalog'].includes(id) || !!activeHouseId)} onNavigate={onNavigate} />
             ))}
           </nav>
         </aside>
@@ -175,9 +181,9 @@ export function AppShell({ children, loading, blocked, status, houses, activeHou
         </main>
       </div>
 
-      <nav aria-label="Hauptbereiche" className="fixed bottom-0 z-30 grid w-full grid-cols-5 gap-1 border-t border-slate-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_20px_rgba(15,23,42,0.04)] backdrop-blur-sm md:hidden">
+      <nav aria-label="Hauptbereiche" className="fixed bottom-0 z-30 flex w-full gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_20px_rgba(15,23,42,0.04)] backdrop-blur-sm md:hidden">
         {bereiche.map(({ id, label, mobileLabel }) => (
-          <NavigationItem key={id} bereich={id} label={label} mobileLabel={mobileLabel} active={activeSection === id} enabled={navigationEnabled && (id === 'organisation' || !!activeHouseId)} onNavigate={onNavigate} mobile />
+          <NavigationItem key={id} bereich={id} label={label} mobileLabel={mobileLabel} active={activeSection === id} enabled={navigationEnabled && (['todos', 'notizen', 'links', 'fragenkatalog'].includes(id) || !!activeHouseId)} onNavigate={onNavigate} mobile />
         ))}
       </nav>
     </div>

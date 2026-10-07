@@ -7,6 +7,7 @@ export interface House {
   bauposten?: Bauposten;
   inkludierteLeistungen?: Record<string, boolean>;
   ausgeschlosseneLeistungen?: Record<string, boolean>;
+  kreditAusgeschlosseneLeistungen?: Record<string, boolean>;
   leistungsstatus?: Record<string, Leistungsstatus>;
   nichtBenoetigtGruende?: Record<string, string>;
   ausfuehrung?: Record<string, Ausfuehrender>;
@@ -17,6 +18,21 @@ export interface House {
   links?: HouseLink[];
   todos?: Todo[];
   materialien?: Record<string, MaterialAuswahl>;
+  fragenAntworten?: Record<string, FrageAntwort>;
+  eigeneFragen?: EigeneFrage[];
+}
+
+export type FrageKategorie = 'gemeinde' | 'hausanbieter' | 'bank' | 'strom' | 'wasser' | 'internet';
+
+export interface EigeneFrage {
+  id: string;
+  kategorie: FrageKategorie;
+  text: string;
+}
+
+export interface FrageAntwort {
+  erledigt: boolean;
+  notiz: string;
 }
 
 export interface PlannerData {

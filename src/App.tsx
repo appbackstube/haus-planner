@@ -8,6 +8,7 @@ import { Gesamt } from './components/Gesamt';
 import { Baukosten } from './components/Baukosten';
 import { NotizenUndLinks } from './components/NotizenUndLinks';
 import { Todos } from './components/Todos';
+import { Fragenkatalog } from './components/Fragenkatalog';
 import { Materialien } from './components/Materialien';
 import { Hausvergleich } from './components/Hausvergleich';
 import { HausTeilen } from './components/HausTeilen';
@@ -17,7 +18,7 @@ import { berechneBaukosten, leereBauposten } from './utils/bauposten';
 import { parsePlannerBackup } from './utils/houseBackup';
 import { beispielBetriebskosten } from './utils/ueberblick';
 import { zielFuerBereich } from './utils/navigation';
-import type { Hauptbereich, Organisationsbereich, Kostenbereich } from './utils/navigation';
+import type { Hauptbereich, Kostenbereich } from './utils/navigation';
 
 const kostenbereiche: { id: Kostenbereich; label: string }[] = [
   { id: 'baukosten', label: 'Baukosten' },
@@ -25,11 +26,6 @@ const kostenbereiche: { id: Kostenbereich; label: string }[] = [
   { id: 'betriebskosten', label: 'Betriebskosten im Haus' },
   { id: 'aktuelle-kosten', label: 'Heutige Kosten' },
   { id: 'gesamt', label: 'Monatsübersicht' },
-];
-
-const organisationsbereiche: { id: Organisationsbereich; label: string }[] = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'notizen-und-links', label: 'Notizen & Links' },
 ];
 
 function createHouse(name: string): House {
@@ -104,14 +100,14 @@ export default function App() {
   const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Hauptbereich>('ueberblick');
   const [costSection, setCostSection] = useState<Kostenbereich>('baukosten');
-  const [organisationSection, setOrganisationSection] = useState<Organisationsbereich>('todos');
   const [shareOpen, setShareOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [backupMessage, setBackupMessage] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const activeHouse = houses.find((h) => h.id === activeHouseId) ?? houses[0] ?? null;
-  const baukosten = activeHouse ? berechneBaukosten(activeHouse).baukosten : 0;
+  const bauBerechnung = activeHouse ? berechneBaukosten(activeHouse) : null;
+  const baukosten = bauBerechnung?.baukosten ?? 0;
 
   const showOverview = () => {
     setActiveSection('ueberblick');
@@ -122,7 +118,6 @@ export default function App() {
   const navigateTo = (bereich: string) => {
     const ziel = zielFuerBereich(bereich);
     if (ziel.kostenbereich) setCostSection(ziel.kostenbereich);
-    if (ziel.organisationsbereich) setOrganisationSection(ziel.organisationsbereich);
     setActiveSection(ziel.hauptbereich);
     setShareOpen(false);
   };
@@ -206,12 +201,6 @@ export default function App() {
           <button key={id} type="button" aria-current={costSection === id ? 'page' : undefined} onClick={() => setCostSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${costSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
         ))}
       </nav>}
-      {activeSection === 'organisation' && <nav aria-label="Organisationsbereiche" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
-        {organisationsbereiche.map(({ id, label }) => (
-          <button key={id} type="button" aria-current={organisationSection === id ? 'page' : undefined} onClick={() => setOrganisationSection(id)} className={`min-h-10 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 ${organisationSection === id ? 'border-sky-700 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'}`}>{label}</button>
-        ))}
-      </nav>}
-
       <input ref={importInputRef} type="file" accept=".json,application/json" onChange={importHouses} className="hidden" aria-label="JSON-Datei importieren" />
       {backupMessage && <p role="status" className="mb-5 text-sm text-slate-600">{backupMessage}</p>}
       {shareOpen && <div id="teilen-bereich" className="mb-6">
@@ -227,7 +216,7 @@ export default function App() {
           </section>}
           {activeSection === 'kosten' && <section aria-label={kostenbereiche.find(({ id }) => id === costSection)?.label}>
             {costSection === 'baukosten' && <Baukosten key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
-            {costSection === 'finanzierung' && <Finanzierung data={activeHouse.finanzierung} baukosten={baukosten} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
+            {costSection === 'finanzierung' && <Finanzierung data={activeHouse.finanzierung} baukosten={baukosten} kreditAusgeschlossen={bauBerechnung?.kreditAusgeschlossen ?? 0} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
             {costSection === 'betriebskosten' && <Betriebskosten data={activeHouse.betriebskosten} onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })} />}
             {costSection === 'aktuelle-kosten' && <AktuelleKosten data={activeHouse.aktuelleKosten} onChange={(aktuelleKosten) => updateHouse({ ...activeHouse, aktuelleKosten })} />}
             {costSection === 'gesamt' && <Gesamt house={activeHouse} />}
@@ -239,7 +228,7 @@ export default function App() {
             <Hausvergleich houses={houses} />
           </section>}
         </>
-      ) : activeSection !== 'organisation' && (
+      ) : !['todos', 'notizen', 'links', 'fragenkatalog'].includes(activeSection) && (
         <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
           <div className="bg-gradient-to-br from-sky-800 to-teal-700 px-6 py-10 text-white sm:px-10 sm:py-14">
             <p className="text-sm font-medium text-sky-100">Dein Weg zum eigenen Haus</p>
@@ -256,11 +245,16 @@ export default function App() {
           </div>
         </section>
       )}
-      {activeSection === 'organisation' && <section aria-label={organisationsbereiche.find(({ id }) => id === organisationSection)?.label}>
-        {organisationSection === 'todos' && <Todos todos={todos} onChange={(next) => setPlanner((current) => ({ ...current, todos: next }))} />}
-        {organisationSection === 'notizen-und-links' && (activeHouse
-          ? <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
-          : <p className="text-sm text-slate-600">Lege zuerst ein Haus an, um Notizen und Links zu speichern.</p>)}
+      {activeSection === 'todos' && <section aria-label="Todos"><Todos todos={todos} onChange={(next) => setPlanner((current) => ({ ...current, todos: next }))} /></section>}
+      {(activeSection === 'notizen' || activeSection === 'links') && <section aria-label={activeSection === 'notizen' ? 'Notizen' : 'Links'}>
+        {activeHouse
+          ? <NotizenUndLinks key={activeHouse.id} house={activeHouse} onChange={updateHouse} bereich={activeSection} />
+          : <p className="text-sm text-slate-600">Lege zuerst ein Haus an, um {activeSection === 'notizen' ? 'Notizen' : 'Links'} zu speichern.</p>}
+      </section>}
+      {activeSection === 'fragenkatalog' && <section aria-label="Fragenkatalog">
+        {activeHouse
+          ? <Fragenkatalog key={activeHouse.id} house={activeHouse} onChange={updateHouse} />
+          : <p className="text-sm text-slate-600">Lege zuerst ein Haus an, um Fragen und Antworten zu speichern.</p>}
       </section>}
       </>}
     </AppShell>

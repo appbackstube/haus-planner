@@ -52,10 +52,15 @@ export function berechneBaukosten(house: House) {
     (summe, id) => summe + (leistungsstatus(house, id) === 'separat' ? leistungspreis(house, id) : 0),
     0,
   );
+  const kreditAusgeschlossen = [...ids].reduce(
+    (summe, id) => summe + (house.kreditAusgeschlosseneLeistungen?.[id] && leistungsstatus(house, id) === 'separat' ? leistungspreis(house, id) : 0),
+    0,
+  );
   return {
     hauspreis: bauposten.hauspreis,
     reserve: bauposten.reserve,
     zusatzkosten,
+    kreditAusgeschlossen,
     baukosten: bauposten.hauspreis + bauposten.reserve + zusatzkosten,
   };
 }

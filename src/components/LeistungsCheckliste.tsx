@@ -320,6 +320,19 @@ function LeistungsZeile({
             className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
           />
         </label>
+        <label className="flex items-center gap-2 self-end py-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={Boolean(house.kreditAusgeschlosseneLeistungen?.[id]) && status === 'separat'}
+            disabled={status !== 'separat'}
+            onChange={(event) => onChange({
+              ...house,
+              kreditAusgeschlosseneLeistungen: { ...house.kreditAusgeschlosseneLeistungen, [id]: event.target.checked },
+            })}
+            className="h-4 w-4 accent-sky-700 disabled:opacity-50"
+          />
+          Aus dem Kredit ausgeschlossen
+        </label>
         {onRemove && (
           <button type="button" aria-label={`${name} entfernen`} onClick={onRemove} className="self-end rounded-md px-3 py-2 text-sm text-red-700 hover:bg-red-50">
             Entfernen
@@ -365,6 +378,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
   const punktEntfernen = (id: string) => {
     const inkludierteLeistungen = { ...house.inkludierteLeistungen };
     const ausgeschlosseneLeistungen = { ...house.ausgeschlosseneLeistungen };
+    const kreditAusgeschlosseneLeistungen = { ...house.kreditAusgeschlosseneLeistungen };
     const leistungsstatusWerte = { ...house.leistungsstatus };
     const nichtBenoetigtGruende = { ...house.nichtBenoetigtGruende };
     const ausfuehrung = { ...house.ausfuehrung };
@@ -372,6 +386,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
     const leistungspreise = { ...house.leistungspreise };
     delete inkludierteLeistungen[id];
     delete ausgeschlosseneLeistungen[id];
+    delete kreditAusgeschlosseneLeistungen[id];
     delete leistungsstatusWerte[id];
     delete nichtBenoetigtGruende[id];
     delete ausfuehrung[id];
@@ -381,6 +396,7 @@ export function LeistungsCheckliste({ house, onChange }: LeistungsChecklisteProp
       ...house,
       inkludierteLeistungen,
       ausgeschlosseneLeistungen,
+      kreditAusgeschlosseneLeistungen,
       leistungsstatus: leistungsstatusWerte,
       nichtBenoetigtGruende,
       ausfuehrung,
