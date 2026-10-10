@@ -4,6 +4,8 @@ export interface FinanzierungBerechnung {
   gesamtkosten: number;
   grundstueckNebenkosten: number;
   bankgebuehren: number;
+  schaetzgebuehr: number;
+  kontofuehrungsgebuehr: number;
   kreditbasis: number;
   ausKreditAusgeschlossen: number;
   kreditbetrag: number;
@@ -23,8 +25,12 @@ export function berechneFinanzierung(data: Finanzierung, baukosten = data.baukos
     ? (data.pfandrechtseintragung ?? 0) : Math.round(kreditbasis * data.pfandrechtseintragungProzent) / 100;
   const bankgebuehren = data.bankgebuehrenProzent === undefined
     ? (data.bankgebuehren ?? 0) : Math.round(kreditbasis * data.bankgebuehrenProzent) / 100;
+  const schaetzgebuehr = data.schaetzgebuehrProzent === undefined
+    ? (data.schaetzgebuehr ?? 0) : Math.round(kreditbasis * data.schaetzgebuehrProzent) / 100;
+  const kontofuehrungsgebuehr = data.kontofuehrungsgebuehrProzent === undefined
+    ? (data.kontofuehrungsgebuehr ?? 0) : Math.round(kreditbasis * data.kontofuehrungsgebuehrProzent) / 100;
   const grundstueckNebenkosten = basisNebenkosten + pfandrechtseintragung;
-  const gesamtkosten = data.grundstueckpreis + baukosten + bankgebuehren + grundstueckNebenkosten;
+  const gesamtkosten = data.grundstueckpreis + baukosten + bankgebuehren + schaetzgebuehr + kontofuehrungsgebuehr + grundstueckNebenkosten;
   const kreditbetrag = Math.max(0, gesamtkosten - data.eigenkapital - ausKreditAusgeschlossen);
   const monatszins = data.zins / 100 / 12;
   const monate = data.laufzeit * 12;
@@ -32,7 +38,7 @@ export function berechneFinanzierung(data: Finanzierung, baukosten = data.baukos
     monatszins > 0
       ? (kreditbetrag * monatszins) / (1 - Math.pow(1 + monatszins, -monate))
       : kreditbetrag / monate;
-  return { gesamtkosten, grundstueckNebenkosten, bankgebuehren, kreditbasis, ausKreditAusgeschlossen, kreditbetrag, monatsrate };
+  return { gesamtkosten, grundstueckNebenkosten, bankgebuehren, schaetzgebuehr, kontofuehrungsgebuehr, kreditbasis, ausKreditAusgeschlossen, kreditbetrag, monatsrate };
 }
 
 export function summeBetriebskosten(data: Betriebskosten): number {

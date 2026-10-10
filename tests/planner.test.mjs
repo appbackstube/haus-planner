@@ -177,6 +177,43 @@ test('Vertragserrichtung, Pfandrechtseintragung und Bankgebühren können prozen
   }
 });
 
+test('Schätzgebühr und Kontoführungsgebühr zählen als einmalige Euro- oder Prozentgebühren', async () => {
+  const finanzierung = {
+    ...house().finanzierung,
+    bankgebuehren: 1000,
+    pfandrechtseintragungProzent: 1,
+    schaetzgebuehrProzent: 0.3,
+    kontofuehrungsgebuehr: 75,
+  };
+  const mitGebuehren = { ...house(), finanzierung };
+  const berechnung = berechneFinanzierung(finanzierung, 215000);
+  assert.equal(berechnung.kreditbasis, 200000);
+  assert.equal(berechnung.schaetzgebuehr, 600);
+  assert.equal(berechnung.kontofuehrungsgebuehr, 75);
+  assert.equal(berechnung.gesamtkosten, 268675);
+  assert.equal(berechnung.kreditbetrag, 203675);
+  assert.equal(berechnung.monatsrate, 203675 / 240);
+  assert.equal(hausKennzahlen(mitGebuehren).schaetzgebuehr, 600);
+  assert.equal(hausKennzahlen(mitGebuehren).kontofuehrungsgebuehr, 75);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitGebuehren])), [mitGebuehren]);
+  const identity = createIdentity();
+  assert.deepEqual(await decryptHouses(await encryptHouses([mitGebuehren], identity), identity), [mitGebuehren]);
+
+  const mitProzent = { ...finanzierung, schaetzgebuehr: 9999, kontofuehrungsgebuehr: 9999, kontofuehrungsgebuehrProzent: 0.125 };
+  assert.equal(berechneFinanzierung(mitProzent, 215000).schaetzgebuehr, 600);
+  assert.equal(berechneFinanzierung(mitProzent, 215000).kontofuehrungsgebuehr, 250);
+  assert.equal(berechneFinanzierung({ ...finanzierung, eigenkapital: 500000 }, 215000).schaetzgebuehr, 0);
+  assert.equal(berechneFinanzierung(house().finanzierung, 215000).kontofuehrungsgebuehr, 0);
+  for (const ungueltig of [
+    { schaetzgebuehr: -1 },
+    { schaetzgebuehrProzent: '0.3' },
+    { kontofuehrungsgebuehr: Infinity },
+    { kontofuehrungsgebuehrProzent: -1 },
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitGebuehren, finanzierung: { ...finanzierung, ...ungueltig } }])), /keine gültige Liste/);
+  }
+});
+
 test('Ein Zinssatz mit zwei Nachkommastellen wirkt sich auf die Monatsrate aus', () => {
   const finanzierung = { ...house().finanzierung, zins: 3.65 };
   const { monatsrate, kreditbetrag } = berechneFinanzierung(finanzierung, 215000);

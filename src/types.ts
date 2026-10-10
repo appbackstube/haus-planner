@@ -85,6 +85,10 @@ export interface Finanzierung {
   baukosten: number;
   bankgebuehren?: number;
   bankgebuehrenProzent?: number;
+  schaetzgebuehr?: number;
+  schaetzgebuehrProzent?: number;
+  kontofuehrungsgebuehr?: number;
+  kontofuehrungsgebuehrProzent?: number;
   grundbucheintragungen?: number;
   grunderwerbsteuerProzent?: number;
   grundbuchEintragungsgebuehrProzent?: number;

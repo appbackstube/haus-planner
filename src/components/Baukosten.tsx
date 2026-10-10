@@ -46,7 +46,7 @@ export function Baukosten({ house, onChange }: BaukostenProps) {
             <div><dt className="text-slate-500">Aus dem Kredit ausgeschlossen</dt><dd className="font-semibold text-slate-900">{euro(kreditAusgeschlossen)} €</dd></div>
             <div><dt className="text-slate-500">Grundstück</dt><dd className="font-semibold text-slate-900">{euro(house.finanzierung.grundstueckpreis)} €</dd></div>
           </dl>
-          <p className="mt-3 text-slate-500">Bankgebühren und Grundbucheintragungen erfasst du unter „Finanzierung“. Sammelpunkte und Details nicht doppelt bepreisen.</p>
+          <p className="mt-3 text-slate-500">Bankbearbeitungsgebühr, Schätzgebühr und Kontoführungsgebühr erfasst du unter „Finanzierung“, Grundbucheintragungen unter „Grundstück“. Sammelpunkte und Details nicht doppelt bepreisen.</p>
         </details>
       </div>
       <LeistungsCheckliste house={house} onChange={onChange} />

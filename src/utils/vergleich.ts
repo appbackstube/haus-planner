@@ -8,7 +8,7 @@ export function summeAktuelleKosten(data: AktuelleKosten): number {
 
 export function hausKennzahlen(house: House) {
   const { baukosten, kreditAusgeschlossen } = berechneBaukosten(house);
-  const { kreditbetrag, monatsrate, grundstueckNebenkosten, bankgebuehren } = berechneFinanzierung(house.finanzierung, baukosten, kreditAusgeschlossen);
+  const { kreditbetrag, monatsrate, grundstueckNebenkosten, bankgebuehren, schaetzgebuehr, kontofuehrungsgebuehr } = berechneFinanzierung(house.finanzierung, baukosten, kreditAusgeschlossen);
   const betriebskosten = summeBetriebskosten(house.betriebskosten);
   const aktuelleKosten = house.aktuelleKosten ? summeAktuelleKosten(house.aktuelleKosten) : null;
   const gesamtMonat = monatsrate + betriebskosten;
@@ -18,6 +18,8 @@ export function hausKennzahlen(house: House) {
     grundstueckpreis: house.finanzierung.grundstueckpreis,
     grundstueckNebenkosten,
     bankgebuehren,
+    schaetzgebuehr,
+    kontofuehrungsgebuehr,
     grundbucheintragungen: house.finanzierung.grundbucheintragungen ?? 0,
     kreditbetrag,
     monatsrate,
