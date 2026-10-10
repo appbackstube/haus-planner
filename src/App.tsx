@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { usePlanner } from './hooks/usePlanner';
 import type { House } from './types';
 import { Finanzierung } from './components/Finanzierung';
+import { Grundstueck } from './components/Grundstueck';
 import { Betriebskosten } from './components/Betriebskosten';
 import { AktuelleKosten } from './components/AktuelleKosten';
 import { Gesamt } from './components/Gesamt';
@@ -22,6 +23,7 @@ import type { Hauptbereich, Kostenbereich } from './utils/navigation';
 
 const kostenbereiche: { id: Kostenbereich; label: string }[] = [
   { id: 'baukosten', label: 'Baukosten' },
+  { id: 'grundstueck', label: 'Grundstück' },
   { id: 'finanzierung', label: 'Finanzierung' },
   { id: 'betriebskosten', label: 'Betriebskosten im Haus' },
   { id: 'aktuelle-kosten', label: 'Heutige Kosten' },
@@ -216,6 +218,7 @@ export default function App() {
           </section>}
           {activeSection === 'kosten' && <section aria-label={kostenbereiche.find(({ id }) => id === costSection)?.label}>
             {costSection === 'baukosten' && <Baukosten key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
+            {costSection === 'grundstueck' && <Grundstueck data={activeHouse.finanzierung} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
             {costSection === 'finanzierung' && <Finanzierung data={activeHouse.finanzierung} baukosten={baukosten} kreditAusgeschlossen={bauBerechnung?.kreditAusgeschlossen ?? 0} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
             {costSection === 'betriebskosten' && <Betriebskosten data={activeHouse.betriebskosten} onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })} />}
             {costSection === 'aktuelle-kosten' && <AktuelleKosten data={activeHouse.aktuelleKosten} onChange={(aktuelleKosten) => updateHouse({ ...activeHouse, aktuelleKosten })} />}

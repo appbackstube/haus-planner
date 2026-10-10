@@ -1,5 +1,5 @@
 export type Hauptbereich = 'ueberblick' | 'kosten' | 'haus' | 'todos' | 'notizen' | 'links' | 'fragenkatalog' | 'vergleich';
-export type Kostenbereich = 'baukosten' | 'finanzierung' | 'betriebskosten' | 'aktuelle-kosten' | 'gesamt';
+export type Kostenbereich = 'baukosten' | 'grundstueck' | 'finanzierung' | 'betriebskosten' | 'aktuelle-kosten' | 'gesamt';
 
 export function zielFuerBereich(bereich: string): {
   hauptbereich: Hauptbereich;
@@ -7,6 +7,7 @@ export function zielFuerBereich(bereich: string): {
 } {
   switch (bereich) {
     case 'baukosten':
+    case 'grundstueck':
     case 'finanzierung':
     case 'betriebskosten':
     case 'aktuelle-kosten':

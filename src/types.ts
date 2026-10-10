@@ -85,6 +85,12 @@ export interface Finanzierung {
   baukosten: number;
   bankgebuehren?: number;
   grundbucheintragungen?: number;
+  grunderwerbsteuerProzent?: number;
+  grundbuchEintragungsgebuehrProzent?: number;
+  eingabengebuehr?: number;
+  vertragserrichtung?: number;
+  pfandrechtseintragung?: number;
+  grundstueckSonstiges?: number;
   eigenkapital: number;
   zins: number;
   laufzeit: number;

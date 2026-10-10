@@ -19,6 +19,7 @@ export function Hausvergleich({ houses }: { houses: House[] }) {
   const kostenPunkte = [
     { label: 'Baukosten', values: kennzahlen.map((werte) => euro(werte.baukosten)) },
     { label: 'Grundstückspreis', values: kennzahlen.map((werte) => euro(werte.grundstueckpreis)) },
+    { label: 'Grundstücksnebenkosten', values: kennzahlen.map((werte) => euro(werte.grundstueckNebenkosten)) },
     { label: 'Bankgebühren', values: kennzahlen.map((werte) => euro(werte.bankgebuehren)) },
     { label: 'Grundbucheintragungen', values: kennzahlen.map((werte) => euro(werte.grundbucheintragungen)) },
     { label: 'Kreditbetrag', values: kennzahlen.map((werte) => euro(werte.kreditbetrag)) },

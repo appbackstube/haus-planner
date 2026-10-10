@@ -18,7 +18,7 @@ Die Leistungsgruppen unter **Kosten → Baukosten** folgen grob dem Bauablauf: P
 
 Unter **Kosten → Baukosten** hat jede Leistung eine Checkbox „Aus dem Kredit ausgeschlossen“. Bei separat zu bezahlenden Leistungen mit Preis bleibt der Betrag Teil der Baukosten und Gesamtkosten, verringert aber Kreditbedarf und Monatsrate. Im Hauspreis enthaltene Leistungen können nicht einzeln abgezogen werden. Trage ausgeschlossene Beträge nicht zusätzlich als Eigenkapital ein. Alte Planungen ohne Checkboxen rechnen unverändert weiter.
 
-Unter **Kosten → Finanzierung** kannst du einmalige Bankgebühren und Grundbucheintragungen als Beträge erfassen. Sie werden zu Haus- und Grundstückskosten addiert. Nach Abzug des Eigenkapitals erhöhen sie gegebenenfalls den Kreditbedarf und die Monatsrate. Alte Planungen ohne diese Angaben werden wie bisher berechnet; es werden keine Gebühren automatisch geschätzt.
+Unter **Kosten → Grundstück** erfasst du den Grundstückspreis, Grunderwerbsteuer und Grundbuch-Eintragungsgebühr als Prozentsatz vom Grundstückspreis sowie Eingabengebühr, Vertragserrichtung, Pfandrechtseintragung und weitere Kosten als Beträge. Vorhandene Grundbucheintragungen aus alten Planungen bleiben sichtbar und zählen weiterhin einmalig mit. Unter **Kosten → Finanzierung** kannst du Bankgebühren erfassen. Diese Nebenkosten erhöhen die Gesamtkosten und gegebenenfalls den Kreditbedarf und die Monatsrate. Alte Planungen ohne neue Angaben werden wie bisher berechnet; es werden keine Gebühren automatisch geschätzt.
 
 Wenn du eine Leistung als **Nicht benötigt** markierst, kannst du in ihren Details einen Grund eintragen. Der Grund steht auch bei geschlossenen Details unter der Leistung. Er wird je Haus gespeichert, beim JSON-Export gesichert und ändert keine Kosten.
 

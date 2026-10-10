@@ -105,6 +105,43 @@ test('Bankgebühren und Grundbucheintragungen erhöhen den Finanzierungsbedarf n
   assert.deepEqual(parseHouseBackup(JSON.stringify([house()])), [house()]);
 });
 
+test('Grundstücksgebühren werden aus dem Grundstückspreis berechnet und einmal finanziert', () => {
+  const finanzierung = {
+    ...house().finanzierung,
+    grundbucheintragungen: 900,
+    grunderwerbsteuerProzent: 3.5,
+    grundbuchEintragungsgebuehrProzent: 1.1,
+    eingabengebuehr: 50,
+    vertragserrichtung: 1200,
+    pfandrechtseintragung: 300,
+    grundstueckSonstiges: 100,
+  };
+  const mitGrundstueck = { ...house(), finanzierung };
+  const berechnung = berechneFinanzierung(finanzierung, 215000);
+  assert.equal(berechnung.grundstueckNebenkosten, 4850);
+  assert.equal(berechnung.gesamtkosten, 269850);
+  assert.equal(berechnung.kreditbetrag, 204850);
+  assert.equal(berechnung.monatsrate, 204850 / 240);
+  assert.equal(hausKennzahlen(mitGrundstueck).grundstueckNebenkosten, 4850);
+  assert.equal(hausKennzahlen(mitGrundstueck).kreditbetrag, berechnung.kreditbetrag);
+  assert.deepEqual(parseHouseBackup(JSON.stringify([mitGrundstueck])), [mitGrundstueck]);
+  assert.equal(zielFuerBereich('grundstueck').kostenbereich, 'grundstueck');
+
+  const teureresGrundstueck = { ...finanzierung, grundstueckpreis: 100000 };
+  assert.equal(berechneFinanzierung(teureresGrundstueck, 215000).grundstueckNebenkosten, 7150);
+  for (const ungueltig of [
+    { grunderwerbsteuerProzent: -1 },
+    { grundbuchEintragungsgebuehrProzent: '1.1' },
+    { eingabengebuehr: null },
+    { vertragserrichtung: -1 },
+    { pfandrechtseintragung: Infinity },
+    { grundstueckSonstiges: -1 },
+  ]) {
+    assert.throws(() => parseHouseBackup(JSON.stringify([{ ...mitGrundstueck, finanzierung: { ...finanzierung, ...ungueltig } }])), /keine gültige Liste/);
+  }
+  assert.equal(berechneFinanzierung(house().finanzierung, 215000).grundstueckNebenkosten, 0);
+});
+
 test('Ein Zinssatz mit zwei Nachkommastellen wirkt sich auf die Monatsrate aus', () => {
   const finanzierung = { ...house().finanzierung, zins: 3.65 };
   const { monatsrate, kreditbetrag } = berechneFinanzierung(finanzierung, 215000);
