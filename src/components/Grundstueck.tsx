@@ -1,17 +1,26 @@
 import type { Finanzierung } from '../types';
 import { berechneFinanzierung } from '../utils/finanzierung';
 import { NumberInput } from './NumberInput';
+import { BetragOderProzentInput } from './BetragOderProzentInput';
 
 interface GrundstueckProps {
   data: Finanzierung;
+  baukosten: number;
+  kreditAusgeschlossen: number;
   onChange: (data: Finanzierung) => void;
 }
 
 const euro = (wert: number) => wert.toLocaleString('de-AT', { maximumFractionDigits: 2 });
 
-export function Grundstueck({ data, onChange }: GrundstueckProps) {
+export function Grundstueck({ data, baukosten, kreditAusgeschlossen, onChange }: GrundstueckProps) {
   const update = (key: keyof Finanzierung) => (value: number) => onChange({ ...data, [key]: value });
-  const { grundstueckNebenkosten } = berechneFinanzierung(data);
+  const updateWahl = (betragKey: 'vertragserrichtung' | 'pfandrechtseintragung', prozentKey: 'vertragserrichtungProzent' | 'pfandrechtseintragungProzent') => (betrag: number | undefined, prozent: number | undefined) => {
+    const neu = { ...data };
+    delete neu[betragKey];
+    delete neu[prozentKey];
+    onChange({ ...neu, ...(betrag === undefined ? {} : { [betragKey]: betrag }), ...(prozent === undefined ? {} : { [prozentKey]: prozent }) });
+  };
+  const { grundstueckNebenkosten, kreditbasis } = berechneFinanzierung(data, baukosten, kreditAusgeschlossen);
 
   return (
     <div className="space-y-4">
@@ -29,11 +38,12 @@ export function Grundstueck({ data, onChange }: GrundstueckProps) {
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h3 className="text-sm font-semibold text-slate-900">Sonstiges</h3>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <NumberInput label="Vertragserrichtung" value={data.vertragserrichtung ?? 0} onValueChange={update('vertragserrichtung')} />
-          <NumberInput label="Pfandrechtseintragung" value={data.pfandrechtseintragung ?? 0} onValueChange={update('pfandrechtseintragung')} />
+          <BetragOderProzentInput label="Vertragserrichtung" betrag={data.vertragserrichtung} prozent={data.vertragserrichtungProzent} basis={data.grundstueckpreis} onChange={updateWahl('vertragserrichtung', 'vertragserrichtungProzent')} />
+          <BetragOderProzentInput label="Pfandrechtseintragung" betrag={data.pfandrechtseintragung} prozent={data.pfandrechtseintragungProzent} basis={kreditbasis} onChange={updateWahl('pfandrechtseintragung', 'pfandrechtseintragungProzent')} />
           <NumberInput label="Weitere Grundstückskosten" value={data.grundstueckSonstiges ?? 0} onValueChange={update('grundstueckSonstiges')} />
           {(data.grundbucheintragungen ?? 0) > 0 && <NumberInput label="Bisherige Grundbucheintragungen" value={data.grundbucheintragungen ?? 0} onValueChange={update('grundbucheintragungen')} />}
         </div>
+        <p className="mt-3 text-xs text-slate-500">Vertragserrichtung in %: vom Grundstückspreis. Pfandrechtseintragung in %: vom Kreditbedarf vor Bank- und Pfandrechtsgebühren. Beim Wechsel der Einheit wird der Wert auf 0 gesetzt.</p>
       </section>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">

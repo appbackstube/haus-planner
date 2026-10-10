@@ -218,7 +218,7 @@ export default function App() {
           </section>}
           {activeSection === 'kosten' && <section aria-label={kostenbereiche.find(({ id }) => id === costSection)?.label}>
             {costSection === 'baukosten' && <Baukosten key={activeHouse.id} house={activeHouse} onChange={updateHouse} />}
-            {costSection === 'grundstueck' && <Grundstueck data={activeHouse.finanzierung} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
+            {costSection === 'grundstueck' && <Grundstueck data={activeHouse.finanzierung} baukosten={baukosten} kreditAusgeschlossen={bauBerechnung?.kreditAusgeschlossen ?? 0} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
             {costSection === 'finanzierung' && <Finanzierung data={activeHouse.finanzierung} baukosten={baukosten} kreditAusgeschlossen={bauBerechnung?.kreditAusgeschlossen ?? 0} onChange={(finanzierung) => updateHouse({ ...activeHouse, finanzierung })} />}
             {costSection === 'betriebskosten' && <Betriebskosten data={activeHouse.betriebskosten} onChange={(betriebskosten) => updateHouse({ ...activeHouse, betriebskosten })} />}
             {costSection === 'aktuelle-kosten' && <AktuelleKosten data={activeHouse.aktuelleKosten} onChange={(aktuelleKosten) => updateHouse({ ...activeHouse, aktuelleKosten })} />}

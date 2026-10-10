@@ -1,5 +1,6 @@
 import type { Finanzierung as FinanzierungData } from '../types';
 import { NumberInput } from './NumberInput';
+import { BetragOderProzentInput } from './BetragOderProzentInput';
 import { berechneFinanzierung } from '../utils/finanzierung';
 
 interface FinanzierungProps {
@@ -14,7 +15,7 @@ export function Finanzierung({ data, baukosten, kreditAusgeschlossen, onChange }
     onChange({ ...data, [key]: value });
   };
 
-  const { gesamtkosten, grundstueckNebenkosten, ausKreditAusgeschlossen, kreditbetrag, monatsrate } = berechneFinanzierung(data, baukosten, kreditAusgeschlossen);
+  const { gesamtkosten, grundstueckNebenkosten, bankgebuehren, kreditbasis, ausKreditAusgeschlossen, kreditbetrag, monatsrate } = berechneFinanzierung(data, baukosten, kreditAusgeschlossen);
 
   return (
     <div className="space-y-4">
@@ -41,15 +42,21 @@ export function Finanzierung({ data, baukosten, kreditAusgeschlossen, onChange }
         <h3 className="text-sm font-semibold text-slate-900">Einmalige Nebenkosten</h3>
         <p className="mt-1 text-sm text-slate-600">Diese Beträge zählen zu den Gesamtkosten und zum Kreditbedarf. Grundstückskosten erfasst du unter „Kosten → Grundstück“.</p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <NumberInput label="Bankgebühren" value={data.bankgebuehren ?? 0} onValueChange={update('bankgebuehren')} />
+          <BetragOderProzentInput label="Bankgebühren" betrag={data.bankgebuehren} prozent={data.bankgebuehrenProzent} basis={kreditbasis} onChange={(betrag, prozent) => {
+            const neu = { ...data };
+            delete neu.bankgebuehren;
+            delete neu.bankgebuehrenProzent;
+            onChange({ ...neu, ...(betrag === undefined ? {} : { bankgebuehren: betrag }), ...(prozent === undefined ? {} : { bankgebuehrenProzent: prozent }) });
+          }} />
         </div>
+        <p className="mt-3 text-xs text-slate-500">Bankgebühren in % beziehen sich auf den Kreditbedarf vor Bank- und Pfandrechtsgebühren. Beim Wechsel der Einheit wird der Wert auf 0 gesetzt.</p>
       </section>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <h3 className="text-sm font-semibold text-slate-900">Berechnung</h3>
         <div className="mt-2 space-y-1 text-sm text-slate-700">
           <p>Haus und Grundstück: <strong>{(baukosten + data.grundstueckpreis).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
-          <p>Bankgebühren: <strong>{(data.bankgebuehren ?? 0).toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
+          <p>Bankgebühren: <strong>{bankgebuehren.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
           <p>Grundstücksnebenkosten: <strong>{grundstueckNebenkosten.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>
           <p>Gesamtkosten: <strong>{gesamtkosten.toLocaleString('de-AT', { minimumFractionDigits: 0 })} €</strong></p>
           <p>Aus dem Kredit ausgeschlossen: <strong>−{ausKreditAusgeschlossen.toLocaleString('de-AT', { maximumFractionDigits: 2 })} €</strong></p>

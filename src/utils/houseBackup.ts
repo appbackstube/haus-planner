@@ -44,7 +44,7 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 
 const betriebskostenFelder = ['heizung', 'strom', 'wasser', 'abwasser', 'muell', 'versicherung', 'grundsteuer', 'internet', 'instandhaltung'];
 const finanzierungsFelder = ['grundstueckpreis', 'baukosten', 'eigenkapital', 'zins', 'laufzeit', 'sondertilgung'];
-const weitereFinanzierungsFelder = ['bankgebuehren', 'grundbucheintragungen', 'grunderwerbsteuerProzent', 'grundbuchEintragungsgebuehrProzent', 'eingabengebuehr', 'vertragserrichtung', 'pfandrechtseintragung', 'grundstueckSonstiges'];
+const weitereFinanzierungsFelder = ['bankgebuehren', 'bankgebuehrenProzent', 'grundbucheintragungen', 'grunderwerbsteuerProzent', 'grundbuchEintragungsgebuehrProzent', 'eingabengebuehr', 'vertragserrichtung', 'vertragserrichtungProzent', 'pfandrechtseintragung', 'pfandrechtseintragungProzent', 'grundstueckSonstiges'];
 const frageKategorien = ['gemeinde', 'hausanbieter', 'bank', 'strom', 'wasser', 'internet'];
 
 function isFrageAntwort(value: unknown): boolean {
